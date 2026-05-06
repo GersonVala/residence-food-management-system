@@ -7,6 +7,7 @@ import jwt from "@fastify/jwt";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { residenciasRoutes } from "./modules/residencias/residencias.routes.js";
 import { residentesRoutes } from "./modules/residentes/residentes.routes.js";
+import { gruposRoutes } from "./modules/grupos/grupos.routes.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -47,6 +48,7 @@ await app.register(jwt, {
 await app.register(authRoutes);
 await app.register(residenciasRoutes);
 await app.register(residentesRoutes);
+await app.register(gruposRoutes);
 
 // ============================================================
 // Rutas base
