@@ -20,7 +20,7 @@ export async function authMiddleware(
   try {
     await request.jwtVerify();
     request.usuario = request.user as JwtPayload;
-  } catch (err) {
+  } catch (_err) {
     reply.status(401).send({
       error: "No autorizado",
       mensaje: "Token inválido o expirado",
