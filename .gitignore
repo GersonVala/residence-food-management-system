@@ -39,3 +39,8 @@ prisma/migrations/
 
 # Docker
 docker-compose.override.yml
+# Docker
+docker-compose.override.yml
+
+# Volumes locales
+postgres_data/
