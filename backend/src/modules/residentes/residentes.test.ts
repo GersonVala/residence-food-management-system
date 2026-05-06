@@ -55,6 +55,9 @@ afterAll(async () => { await app.close(); await prisma.$disconnect(); });
 
 beforeEach(async () => {
   await prisma.grupoIntegrante.deleteMany();
+  await prisma.menuGrupo.deleteMany();
+  await prisma.menuIngrediente.deleteMany();
+  await prisma.menu.deleteMany();
   await prisma.grupoCocina.deleteMany();
   await prisma.residente.deleteMany();
   await prisma.user.deleteMany({ where: { role: "RESIDENTE" } });
