@@ -44,6 +44,17 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  await prisma.seleccionMenu.deleteMany();
+  await prisma.movimientoStock.deleteMany();
+  await prisma.stock.deleteMany();
+  await prisma.turnoCocina.deleteMany();
+  await prisma.menuGrupo.deleteMany();
+  await prisma.menuIngrediente.deleteMany();
+  await prisma.menu.deleteMany();
+  await prisma.grupoIntegrante.deleteMany();
+  await prisma.grupoCocina.deleteMany();
+  await prisma.residente.deleteMany();
+  await prisma.user.deleteMany({ where: { role: "RESIDENTE" } });
   await prisma.residencia.deleteMany();
 });
 

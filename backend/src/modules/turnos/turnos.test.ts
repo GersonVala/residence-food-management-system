@@ -89,6 +89,7 @@ afterAll(async () => { await app.close(); await prisma.$disconnect(); });
 beforeEach(async () => {
   await prisma.seleccionMenu.deleteMany();
   await prisma.movimientoStock.deleteMany();
+  await prisma.stock.deleteMany();
   await prisma.turnoCocina.deleteMany();
   await prisma.menuGrupo.deleteMany();
   await prisma.menuIngrediente.deleteMany();
