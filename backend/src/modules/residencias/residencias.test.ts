@@ -60,7 +60,7 @@ describe("GET /residencias", () => {
   it("retorna 403 si es RESIDENTE", async () => {
     const hash = await bcrypt.hash("password123", 10);
     const user = await prisma.user.create({
-      data: { email: "residente@test.com", password_hash: hash, role: "RESIDENTE", first_login: false },
+      data: { email: `residente-${Date.now()}@test.com`, password_hash: hash, role: "RESIDENTE", first_login: false },
     });
     const loginRes = await supertest(app.server)
       .post("/auth/login")
