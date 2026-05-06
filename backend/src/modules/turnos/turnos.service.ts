@@ -98,7 +98,64 @@ export const turnosService = {
     if (seleccion.estado !== "PENDIENTE") {
       badRequest("Solo se puede confirmar una selección en estado PENDIENTE");
     }
-    return turnosRepository.updateSeleccionEstado(seleccion_id, "CONFIRMADO");
+
+    const ingredientes = seleccion.menu.ingredientes;
+    const residencia_id = seleccion.turno.residencia_id;
+
+    // Verificar stock suficiente para todos los ingredientes antes de tocar nada
+    for (const ing of ingredientes) {
+      const cantidad_necesaria = ing.cantidad_base + ing.cantidad_por_persona * seleccion.personas;
+      const stock = await prisma.stock.findFirst({
+        where: { alimento_id: ing.alimento_id, residencia_id, activo: true },
+      });
+      if (!stock || stock.cantidad < cantidad_necesaria) {
+        badRequest(
+          `Stock insuficiente para el ingrediente con id ${ing.alimento_id}. Disponible: ${stock?.cantidad ?? 0}, requerido: ${cantidad_necesaria}`
+        );
+      }
+    }
+
+    return prisma.$transaction(async (tx) => {
+      for (const ing of ingredientes) {
+        const cantidad_calculada = ing.cantidad_base + ing.cantidad_por_persona * seleccion.personas;
+
+        const stock = await tx.stock.findFirst({
+          where: { alimento_id: ing.alimento_id, residencia_id, activo: true },
+        });
+        if (!stock) badRequest(`Stock no encontrado para el ingrediente ${ing.alimento_id}`);
+
+        await tx.stock.update({
+          where: { id: stock.id },
+          data: { cantidad: { decrement: cantidad_calculada } },
+        });
+
+        await tx.movimientoStock.create({
+          data: {
+            stock_id: stock.id,
+            tipo: "SALIDA",
+            cantidad: cantidad_calculada,
+            turno_id: seleccion.turno_id,
+            motivo: `Confirmación selección #${seleccion_id}`,
+          },
+        });
+
+        await tx.seleccionAjuste.create({
+          data: {
+            seleccion_id,
+            alimento_id: ing.alimento_id,
+            cantidad_calculada,
+            cantidad_real: cantidad_calculada,
+            unidad: ing.unidad,
+          },
+        });
+      }
+
+      return tx.seleccionMenu.update({
+        where: { id: seleccion_id },
+        data: { estado: "CONFIRMADO" },
+        include: { ajustes: true },
+      });
+    });
   },
 
   async revertirSeleccion(seleccion_id: number) {
@@ -111,6 +168,43 @@ export const turnosService = {
     const ahora = new Date();
     if (seleccion.estado === "CONFIRMADO" && ahora > seleccion.rollback_deadline) {
       badRequest("El plazo de rollback ya venció");
+    }
+
+    // Si estaba confirmada, devolver el stock descontado
+    if (seleccion.estado === "CONFIRMADO") {
+      const residencia_id = seleccion.turno.residencia_id;
+      const ajustes = await prisma.seleccionAjuste.findMany({ where: { seleccion_id } });
+
+      await prisma.$transaction(async (tx) => {
+        for (const ajuste of ajustes) {
+          const stock = await tx.stock.findFirst({
+            where: { alimento_id: ajuste.alimento_id, residencia_id, activo: true },
+          });
+          if (!stock) return;
+
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: { cantidad: { increment: ajuste.cantidad_real } },
+          });
+
+          await tx.movimientoStock.create({
+            data: {
+              stock_id: stock.id,
+              tipo: "ENTRADA",
+              cantidad: ajuste.cantidad_real,
+              turno_id: seleccion.turno_id,
+              motivo: `Rollback selección #${seleccion_id}`,
+            },
+          });
+        }
+
+        await tx.seleccionMenu.update({
+          where: { id: seleccion_id },
+          data: { estado: "REVERTIDO" },
+        });
+      });
+
+      return prisma.seleccionMenu.findUnique({ where: { id: seleccion_id } });
     }
 
     return turnosRepository.updateSeleccionEstado(seleccion_id, "REVERTIDO");
