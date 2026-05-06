@@ -1,9 +1,9 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { residentesService } from "./residentes.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
 
-function handleError(err: unknown, reply: Parameters<Parameters<FastifyInstance["get"]>[2]>[1]) {
+function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
   if (e.statusCode) {
     return reply.status(e.statusCode).send({ error: e.error, mensaje: e.mensaje });
@@ -122,9 +122,10 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const data = request.body.fecha_ingreso
-          ? { ...request.body, fecha_ingreso: new Date(request.body.fecha_ingreso) }
-          : request.body;
+        const { fecha_ingreso, ...rest } = request.body;
+        const data = fecha_ingreso
+          ? { ...rest, fecha_ingreso: new Date(fecha_ingreso) }
+          : rest;
         const residente = await residentesService.actualizar(Number(request.params.id), data);
         return reply.status(200).send(residente);
       } catch (err) {

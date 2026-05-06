@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { residenciasService } from "./residencias.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
@@ -16,7 +16,7 @@ const schemaBase = {
   additionalProperties: false,
 };
 
-function handleError(err: unknown, reply: Parameters<Parameters<FastifyInstance["get"]>[2]>[1]) {
+function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
   if (e.statusCode) {
     return reply.status(e.statusCode).send({ error: e.error, mensaje: e.mensaje });
