@@ -21,6 +21,7 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     // Tests secuenciales: evita problemas de concurrencia en la DB de test
+    fileParallelism: false,
     sequence: {
       concurrent: false,
     },
