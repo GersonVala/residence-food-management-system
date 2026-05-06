@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "feat/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "feat/**"]
 
 jobs:
   backend:
@@ -46,6 +46,11 @@ jobs:
 
       - name: Generate Prisma client
         run: npm run db:generate
+        env:
+          DATABASE_URL: postgresql://fundacion:fundacion_pass@localhost:5432/fundacion_test
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://fundacion:fundacion_pass@localhost:5432/fundacion_test
 
