@@ -79,6 +79,29 @@ async function crearMenu(residencia_id: number) {
   });
 }
 
+async function crearMenuConIngredientes(residencia_id: number) {
+  const categoria = await prisma.categoria.create({ data: { nombre: `Cat-${Date.now()}` } });
+  const alimento = await prisma.alimento.create({
+    data: { nombre: `Alimento-${Date.now()}`, unidad_base: "KG", categoria_id: categoria.id },
+  });
+  const stock = await prisma.stock.create({
+    data: { alimento_id: alimento.id, residencia_id, cantidad: 100, unidad: "KG" },
+  });
+  const menu = await prisma.menu.create({
+    data: { nombre: "Milanesa con ing", dificultad: "FACIL", tiempo_min: 30, residencia_id },
+  });
+  await prisma.menuIngrediente.create({
+    data: {
+      menu_id: menu.id,
+      alimento_id: alimento.id,
+      cantidad_base: 1,
+      cantidad_por_persona: 0.5,
+      unidad: "KG",
+    },
+  });
+  return { menu, alimento, stock };
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -87,6 +110,7 @@ beforeAll(async () => { await app.ready(); });
 afterAll(async () => { await app.close(); await prisma.$disconnect(); });
 
 beforeEach(async () => {
+  await prisma.seleccionAjuste.deleteMany();
   await prisma.seleccionMenu.deleteMany();
   await prisma.movimientoStock.deleteMany();
   await prisma.stock.deleteMany();
@@ -98,6 +122,8 @@ beforeEach(async () => {
   await prisma.grupoCocina.deleteMany();
   await prisma.residente.deleteMany();
   await prisma.user.deleteMany({ where: { role: "RESIDENTE" } });
+  await prisma.alimento.deleteMany();
+  await prisma.categoria.deleteMany();
   await prisma.residencia.deleteMany();
 });
 
@@ -316,7 +342,7 @@ describe("POST /turnos/:id/selecciones", () => {
 // ---------------------------------------------------------------------------
 
 describe("PATCH /selecciones/:id/confirmar", () => {
-  it("confirma una selección pendiente", async () => {
+  it("confirma, genera ajustes y descuenta stock", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
     const residencia = await crearResidencia();
@@ -325,7 +351,7 @@ describe("PATCH /selecciones/:id/confirmar", () => {
       data: { grupo_id: grupo.id, residencia_id: residencia.id, fecha: new Date("2025-12-01"), franja: "ALMUERZO" },
     });
     const residente = await crearResidente(residencia.id);
-    const menu = await crearMenu(residencia.id);
+    const { menu, stock } = await crearMenuConIngredientes(residencia.id);
 
     const sel = await supertest(app.server)
       .post(`/turnos/${turno.id}/selecciones`)
@@ -338,6 +364,37 @@ describe("PATCH /selecciones/:id/confirmar", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.estado).toBe("CONFIRMADO");
+    expect(res.body.ajustes).toHaveLength(1);
+
+    // cantidad_base(1) + cantidad_por_persona(0.5) * personas(4) = 3
+    const stockActualizado = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(stockActualizado?.cantidad).toBe(97);
+  });
+
+  it("retorna 400 si stock insuficiente", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const grupo = await crearGrupo(residencia.id);
+    const turno = await prisma.turnoCocina.create({
+      data: { grupo_id: grupo.id, residencia_id: residencia.id, fecha: new Date("2025-12-01"), franja: "ALMUERZO" },
+    });
+    const residente = await crearResidente(residencia.id);
+    const { menu, stock } = await crearMenuConIngredientes(residencia.id);
+
+    // Dejar solo 1kg — insuficiente para 4 personas (necesita 3kg)
+    await prisma.stock.update({ where: { id: stock.id }, data: { cantidad: 1 } });
+
+    const sel = await supertest(app.server)
+      .post(`/turnos/${turno.id}/selecciones`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ residente_id: residente.id, menu_id: menu.id, personas: 4 });
+
+    const res = await supertest(app.server)
+      .patch(`/selecciones/${sel.body.id}/confirmar`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
   });
 
   it("retorna 400 si la selección ya está confirmada", async () => {
@@ -349,7 +406,7 @@ describe("PATCH /selecciones/:id/confirmar", () => {
       data: { grupo_id: grupo.id, residencia_id: residencia.id, fecha: new Date("2025-12-01"), franja: "ALMUERZO" },
     });
     const residente = await crearResidente(residencia.id);
-    const menu = await crearMenu(residencia.id);
+    const { menu } = await crearMenuConIngredientes(residencia.id);
 
     const sel = await supertest(app.server)
       .post(`/turnos/${turno.id}/selecciones`)
@@ -373,7 +430,7 @@ describe("PATCH /selecciones/:id/confirmar", () => {
 // ---------------------------------------------------------------------------
 
 describe("PATCH /selecciones/:id/revertir", () => {
-  it("revierte una selección pendiente", async () => {
+  it("revierte una selección pendiente sin tocar stock", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
     const residencia = await crearResidencia();
@@ -395,6 +452,44 @@ describe("PATCH /selecciones/:id/revertir", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.estado).toBe("REVERTIDO");
+  });
+
+  it("revierte una selección confirmada y devuelve el stock", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const grupo = await crearGrupo(residencia.id);
+    // fecha futura para que el rollback_deadline no esté vencido
+    const fechaFutura = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const turno = await prisma.turnoCocina.create({
+      data: { grupo_id: grupo.id, residencia_id: residencia.id, fecha: fechaFutura, franja: "ALMUERZO" },
+    });
+    const residente = await crearResidente(residencia.id);
+    const { menu, stock } = await crearMenuConIngredientes(residencia.id);
+
+    const sel = await supertest(app.server)
+      .post(`/turnos/${turno.id}/selecciones`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ residente_id: residente.id, menu_id: menu.id, personas: 4 });
+
+    await supertest(app.server)
+      .patch(`/selecciones/${sel.body.id}/confirmar`)
+      .set("Authorization", `Bearer ${token}`);
+
+    // stock bajó de 100 a 97
+    const stockTras = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(stockTras?.cantidad).toBe(97);
+
+    const res = await supertest(app.server)
+      .patch(`/selecciones/${sel.body.id}/revertir`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.estado).toBe("REVERTIDO");
+
+    // stock vuelve a 100
+    const stockRestaurado = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(stockRestaurado?.cantidad).toBe(100);
   });
 
   it("retorna 400 si ya fue revertida", async () => {
@@ -462,7 +557,7 @@ describe("DELETE /selecciones/:id", () => {
       data: { grupo_id: grupo.id, residencia_id: residencia.id, fecha: new Date("2025-12-01"), franja: "ALMUERZO" },
     });
     const residente = await crearResidente(residencia.id);
-    const menu = await crearMenu(residencia.id);
+    const { menu } = await crearMenuConIngredientes(residencia.id);
 
     const sel = await supertest(app.server)
       .post(`/turnos/${turno.id}/selecciones`)
