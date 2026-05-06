@@ -1,0 +1,336 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Role {
+  ADMIN_GLOBAL
+  ADMIN_RESIDENCIA
+  RESIDENTE
+}
+
+enum Franja {
+  ALMUERZO
+  CENA
+}
+
+enum Unidad {
+  KG
+  GR
+  LITROS
+  ML
+  UNIDADES
+  PAQUETES
+}
+
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+  AJUSTE
+}
+
+enum Dificultad {
+  FACIL
+  MEDIO
+  DIFICIL
+}
+
+enum EstadoSeleccion {
+  PENDIENTE
+  CONFIRMADO
+  REVERTIDO
+}
+
+// ============================================================
+// Modelos
+// ============================================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password_hash String
+  role          Role
+  residencia_id Int?
+  first_login   Boolean   @default(true)
+  active        Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  residencia    Residencia?    @relation(fields: [residencia_id], references: [id])
+  residente     Residente?
+  auditoria     AuditoriaLog[]
+
+  @@map("users")
+}
+
+model Residencia {
+  id             Int      @id @default(autoincrement())
+  nombre         String
+  direccion      String
+  ciudad         String
+  provincia      String
+  capacidad_max  Int
+  rollback_horas Int      @default(2)
+  activo         Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  users          User[]
+  residentes     Residente[]
+  grupos         GrupoCocina[]
+  turnos         TurnoCocina[]
+  stock          Stock[]
+  menus          Menu[]
+  auditoria      AuditoriaLog[]
+
+  @@map("residencias")
+}
+
+model Residente {
+  id             Int      @id @default(autoincrement())
+  user_id        Int      @unique
+  residencia_id  Int
+  nombre         String
+  apellido       String
+  dni            String   @unique
+  edad           Int
+  telefono       String?
+  universidad    String
+  carrera        String
+  ciudad_origen  String
+  fecha_ingreso  DateTime
+  activo         Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  user           User       @relation(fields: [user_id], references: [id])
+  residencia     Residencia @relation(fields: [residencia_id], references: [id])
+  grupos         GrupoIntegrante[]
+  movimientos    MovimientoStock[]
+  selecciones    SeleccionMenu[]
+
+  @@map("residentes")
+}
+
+model GrupoCocina {
+  id            Int      @id @default(autoincrement())
+  nombre        String
+  residencia_id Int
+  activo        Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  residencia    Residencia        @relation(fields: [residencia_id], references: [id])
+  integrantes   GrupoIntegrante[]
+  turnos        TurnoCocina[]
+  menus         MenuGrupo[]
+
+  @@map("grupos_cocina")
+}
+
+model GrupoIntegrante {
+  id            Int       @id @default(autoincrement())
+  grupo_id      Int
+  residente_id  Int
+  fecha_ingreso DateTime  @default(now())
+  fecha_egreso  DateTime?
+
+  grupo         GrupoCocina @relation(fields: [grupo_id], references: [id])
+  residente     Residente   @relation(fields: [residente_id], references: [id])
+
+  @@map("grupos_integrantes")
+}
+
+model TurnoCocina {
+  id            Int      @id @default(autoincrement())
+  grupo_id      Int
+  residencia_id Int
+  fecha         DateTime @db.Date
+  franja        Franja
+  activo        Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  grupo         GrupoCocina     @relation(fields: [grupo_id], references: [id])
+  residencia    Residencia      @relation(fields: [residencia_id], references: [id])
+  movimientos   MovimientoStock[]
+  selecciones   SeleccionMenu[]
+
+  @@unique([grupo_id, fecha, franja])
+  @@map("turnos_cocina")
+}
+
+model Categoria {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique
+
+  alimentos Alimento[]
+
+  @@map("categorias")
+}
+
+model Alimento {
+  id            Int      @id @default(autoincrement())
+  nombre        String
+  marca         String?
+  unidad_base   Unidad
+  categoria_id  Int
+  calorias      Float?
+  proteinas     Float?
+  carbohidratos Float?
+  grasas        Float?
+  ia_verificado Boolean  @default(false)
+
+  categoria     Categoria        @relation(fields: [categoria_id], references: [id])
+  stock         Stock[]
+  ingredientes  MenuIngrediente[]
+  ajustes       SeleccionAjuste[]
+
+  @@map("alimentos")
+}
+
+model Stock {
+  id               Int       @id @default(autoincrement())
+  alimento_id      Int
+  residencia_id    Int
+  cantidad         Float
+  unidad           Unidad
+  fecha_vencimiento DateTime?
+  stock_minimo     Float?
+  activo           Boolean   @default(true)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  alimento         Alimento        @relation(fields: [alimento_id], references: [id])
+  residencia       Residencia      @relation(fields: [residencia_id], references: [id])
+  movimientos      MovimientoStock[]
+
+  @@map("stock")
+}
+
+model MovimientoStock {
+  id           Int            @id @default(autoincrement())
+  stock_id     Int
+  tipo         TipoMovimiento
+  cantidad     Float
+  residente_id Int?
+  turno_id     Int?
+  motivo       String?
+  created_at   DateTime       @default(now())
+
+  stock        Stock        @relation(fields: [stock_id], references: [id])
+  residente    Residente?   @relation(fields: [residente_id], references: [id])
+  turno        TurnoCocina? @relation(fields: [turno_id], references: [id])
+
+  @@map("movimientos_stock")
+}
+
+model Menu {
+  id           Int        @id @default(autoincrement())
+  nombre       String
+  descripcion  String?
+  imagen_url   String?
+  video_url    String?
+  dificultad   Dificultad
+  tiempo_min   Int
+  residencia_id Int
+  activo       Boolean    @default(true)
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+
+  residencia   Residencia        @relation(fields: [residencia_id], references: [id])
+  ingredientes MenuIngrediente[]
+  grupos       MenuGrupo[]
+  selecciones  SeleccionMenu[]
+
+  @@map("menus")
+}
+
+model MenuIngrediente {
+  id                Int    @id @default(autoincrement())
+  menu_id           Int
+  alimento_id       Int
+  cantidad_base     Float
+  cantidad_por_persona Float
+  unidad            Unidad
+
+  menu              Menu     @relation(fields: [menu_id], references: [id])
+  alimento          Alimento @relation(fields: [alimento_id], references: [id])
+
+  @@unique([menu_id, alimento_id])
+  @@map("menu_ingredientes")
+}
+
+model MenuGrupo {
+  id        Int @id @default(autoincrement())
+  menu_id   Int
+  grupo_id  Int
+
+  menu      Menu        @relation(fields: [menu_id], references: [id])
+  grupo     GrupoCocina @relation(fields: [grupo_id], references: [id])
+
+  @@unique([menu_id, grupo_id])
+  @@map("menu_grupos")
+}
+
+model SeleccionMenu {
+  id               Int             @id @default(autoincrement())
+  turno_id         Int
+  menu_id          Int
+  residente_id     Int
+  personas         Int
+  estado           EstadoSeleccion @default(PENDIENTE)
+  rollback_deadline DateTime
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  turno            TurnoCocina @relation(fields: [turno_id], references: [id])
+  menu             Menu        @relation(fields: [menu_id], references: [id])
+  residente        Residente   @relation(fields: [residente_id], references: [id])
+  ajustes          SeleccionAjuste[]
+
+  @@index([estado, rollback_deadline])
+  @@map("selecciones_menu")
+}
+
+model SeleccionAjuste {
+  id                 Int    @id @default(autoincrement())
+  seleccion_id       Int
+  alimento_id        Int
+  cantidad_calculada Float
+  cantidad_real      Float
+  unidad             Unidad
+
+  seleccion          SeleccionMenu @relation(fields: [seleccion_id], references: [id])
+  alimento           Alimento      @relation(fields: [alimento_id], references: [id])
+
+  @@map("seleccion_ajustes")
+}
+
+model AuditoriaLog {
+  id              Int      @id @default(autoincrement())
+  user_id         Int?
+  accion          String
+  entidad         String
+  entidad_id      Int?
+  residencia_id   Int?
+  datos_prev_json Json?
+  datos_new_json  Json?
+  created_at      DateTime @default(now())
+
+  user            User?       @relation(fields: [user_id], references: [id])
+  residencia      Residencia? @relation(fields: [residencia_id], references: [id])
+
+  @@index([accion, user_id, residencia_id, created_at])
+  @@map("auditoria_logs")
+}
