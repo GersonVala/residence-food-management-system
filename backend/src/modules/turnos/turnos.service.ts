@@ -1,6 +1,5 @@
 import { turnosRepository, type CreateTurnoInput } from "./turnos.repository.js";
 import { prisma } from "../../shared/prisma/client.js";
-import type { Franja } from "@prisma/client";
 
 function notFound(mensaje: string): never {
   throw { statusCode: 404, error: "Not Found", mensaje };
