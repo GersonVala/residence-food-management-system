@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { residenciasRoutes } from "./modules/residencias/residencias.routes.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -43,6 +44,7 @@ await app.register(jwt, {
 // ============================================================
 
 await app.register(authRoutes);
+await app.register(residenciasRoutes);
 
 // ============================================================
 // Rutas base
