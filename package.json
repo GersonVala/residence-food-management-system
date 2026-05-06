@@ -1,0 +1,17 @@
+{
+  "name": "residence-food-management-system",
+  "version": "0.1.0",
+  "description": "Sistema de gestión de comidas para residencias universitarias — Fundación Si Seminario",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspace=backend"
+  }
+}
