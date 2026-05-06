@@ -5,12 +5,12 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
-    // Variables de entorno para tests — se aplican ANTES de que se importe cualquier módulo
     env: {
       NODE_ENV: "test",
       DATABASE_URL:
-        "postgresql://fundacion:fundacion_pass@localhost:5432/fundacion_test",
-      JWT_SECRET: "test-secret",
+        process.env.DATABASE_URL ??
+        "postgresql://fundacion:1234@localhost:5432/fundacion_test",
+      JWT_SECRET: process.env.JWT_SECRET ?? "test-secret",
       JWT_EXPIRES_IN: "7d",
       FRONTEND_URL: "http://localhost:3000",
     },

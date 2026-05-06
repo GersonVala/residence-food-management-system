@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "feat/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "feat/**"]
 
 jobs:
   backend:
@@ -26,63 +26,49 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    defaults:
-      run:
-        working-directory: ./backend
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Generate Prisma client
+        working-directory: ./backend
         run: npm run db:generate
         env:
           DATABASE_URL: postgresql://fundacion:fundacion_pass@localhost:5432/fundacion_test
 
+      - name: Run migrations
+        working-directory: ./backend
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://fundacion:fundacion_pass@localhost:5432/fundacion_test
+
       - name: TypeScript check
+        working-directory: ./backend
         run: npm run typecheck
 
       - name: ESLint
+        working-directory: ./backend
         run: npm run lint
 
       - name: Run tests
+        working-directory: ./backend
         run: npm test
         env:
           DATABASE_URL: postgresql://fundacion:fundacion_pass@localhost:5432/fundacion_test
           JWT_SECRET: ci-test-secret
           NODE_ENV: test
 
-  frontend:
-    name: Frontend TypeScript check
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: ./frontend
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: TypeScript check
-        run: npm run typecheck
+  # frontend job se activa cuando haya código en frontend/src
+  # frontend:
+  #   name: Frontend TypeScript check
+  #   ...agregarlo cuando el frontend tenga archivos
