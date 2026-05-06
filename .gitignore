@@ -9,12 +9,13 @@ build/
 .next/
 out/
 
-# Environment files
+# Environment files — NUNCA commitear secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
 
 # Logs
 logs/
@@ -34,13 +35,26 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
-# Prisma
-prisma/migrations/
+# Prisma — las migrations SÍ se commitean
+# prisma/migrations/ ← NO ignorar
 
-# Docker
-docker-compose.override.yml
 # Docker
 docker-compose.override.yml
 
 # Volumes locales
 postgres_data/
+
+# IA — configuración de agentes y memoria (solo para uso local)
+.claude/
+.agents/
+.atl/
+CLAUDE.md
+*.claude.md
+
+# Documentos personales de análisis y diseño
+ANALISIS.md
+diseño.md
+RECOMENDACION.md
+
+# Test files env
+backend/.env.test
