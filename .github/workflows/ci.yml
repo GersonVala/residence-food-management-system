@@ -68,7 +68,31 @@ jobs:
           JWT_SECRET: ci-test-secret
           NODE_ENV: test
 
-  # frontend job se activa cuando haya código en frontend/src
-  # frontend:
-  #   name: Frontend TypeScript check
-  #   ...agregarlo cuando el frontend tenga archivos
+  frontend:
+    name: Frontend TypeScript check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        working-directory: ./frontend
+        run: npm run typecheck
+
+      - name: ESLint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run tests
+        working-directory: ./frontend
+        run: npm run test:run
