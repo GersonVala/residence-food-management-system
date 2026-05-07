@@ -1,1 +1,70 @@
 @import "tailwindcss";
+
+@theme {
+  /* Brand palette */
+  --color-brand-purple: #6B3FA0;
+  --color-brand-purple-dark: #52308A;
+  --color-brand-purple-light: #EDE5F7;
+  --color-brand-purple-soft: #F9F6FD;
+  --color-brand-gold: #F5A623;
+  --color-brand-gold-light: #FEF3DC;
+
+  /* Typography */
+  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Radii */
+  --radius-card: 16px;
+  --radius-button: 10px;
+
+  /* Shadows */
+  --shadow-soft: 0 4px 16px -4px rgb(107 63 160 / 0.15);
+  --shadow-elevated: 0 12px 32px -8px rgb(107 63 160 / 0.25);
+}
+
+:root {
+  /* Motion (kept outside @theme — used by raw CSS keyframes/animations) */
+  --ease-institutional: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 200ms;
+  --duration-base: 250ms;
+}
+
+/* Body defaults — Nunito everywhere, Playfair only via .font-serif or @theme utility */
+html,
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Keyframes */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Utility classes — applied directly via className */
+.animate-fade-in {
+  animation: fade-in var(--duration-base) var(--ease-institutional) both;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up var(--duration-base) var(--ease-institutional) both;
+}
