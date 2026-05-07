@@ -42,6 +42,7 @@ await app.register(cors, {
 
 await app.register(jwt, {
   secret: JWT_SECRET,
+  sign: { expiresIn: '7d' },
 });
 
 // ============================================================
