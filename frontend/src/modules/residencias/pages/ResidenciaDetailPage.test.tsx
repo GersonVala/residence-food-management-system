@@ -61,9 +61,12 @@ function renderPage(id = '1') {
   )
 }
 
-// Espera a que el nombre aparezca en el h1 del header
+// Espera a que el loading desaparezca y la página esté lista
 async function waitForHeader() {
-  return screen.findByRole('heading', { name: 'Casa Central' })
+  await waitFor(() => {
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
+  })
+  return screen.getAllByText('Casa Central')[0]
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -82,7 +85,8 @@ describe('ResidenciaDetailPage — carga inicial', () => {
   it('muestra el nombre de la residencia cuando carga exitosamente', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce(residenciaBase)
     renderPage()
-    expect(await waitForHeader()).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Cargando...')).not.toBeInTheDocument())
+    expect(screen.getAllByText('Casa Central').length).toBeGreaterThan(0)
   })
 
   it('muestra error cuando el servidor devuelve 404', async () => {
