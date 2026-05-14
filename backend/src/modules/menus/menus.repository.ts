@@ -8,6 +8,7 @@ export type CreateMenuInput = {
   video_url?: string;
   dificultad: Dificultad;
   tiempo_min: number;
+  personas_base: number;
   residencia_id: number;
 };
 

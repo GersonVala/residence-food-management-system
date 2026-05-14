@@ -294,4 +294,196 @@ describe("DELETE /residentes/:id", () => {
       .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(404);
   });
+
+  // T-4.3: Verify soft delete sets both Residente.activo and User.active to false
+  it("T-4.3: soft delete marca Residente.activo=false Y User.active=false atómicamente", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const created = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    expect(created.status).toBe(201);
+    const residenteId = created.body.id;
+
+    const res = await supertest(app.server)
+      .delete(`/residentes/${residenteId}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(204);
+
+    const residenteEnDb = await prisma.residente.findUnique({ where: { id: residenteId } });
+    expect(residenteEnDb?.activo).toBe(false);
+
+    const userEnDb = await prisma.user.findFirst({ where: { email: residenteBase.email } });
+    expect(userEnDb?.active).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /residentes (global — T-4.1)
+// ---------------------------------------------------------------------------
+
+describe("GET /residentes", () => {
+  it("T-4.1: retorna 401 sin token", async () => {
+    const res = await supertest(app.server).get("/residentes");
+    expect(res.status).toBe(401);
+  });
+
+  it("T-4.1: retorna 403 si el rol es ADMIN_RESIDENCIA", async () => {
+    const admin = await crearAdmin("ADMIN_RESIDENCIA");
+    const token = await login(admin.email);
+
+    const res = await supertest(app.server)
+      .get("/residentes")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("T-4.1: retorna 200 con array vacío cuando no hay residentes", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+
+    const res = await supertest(app.server)
+      .get("/residentes")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("T-4.1: retorna todos los residentes activos con residencia incluida", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    const res = await supertest(app.server)
+      .get("/residentes")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].nombre).toBe("Juan");
+    expect(res.body[0].residencia).toBeDefined();
+    expect(res.body[0].residencia.nombre).toBe("Residencia Test");
+    expect(res.body[0].user).toBeDefined();
+    expect(res.body[0].user.email).toBe(residenteBase.email);
+  });
+
+  it("T-4.1: no incluye residentes con activo=false", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const created = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    // Soft delete the residente
+    await supertest(app.server)
+      .delete(`/residentes/${created.body.id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    const res = await supertest(app.server)
+      .get("/residentes")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /residentes/:id — con residencia_id (T-4.2)
+// ---------------------------------------------------------------------------
+
+describe("PATCH /residentes/:id con residencia_id", () => {
+  it("T-4.2: permite cambiar residencia_id y sincroniza User.residencia_id", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia1 = await crearResidencia();
+    const residencia2 = await prisma.residencia.create({
+      data: {
+        nombre: "Residencia Nueva",
+        direccion: "Av. Nueva 456",
+        ciudad: "Córdoba",
+        provincia: "Córdoba",
+        capacidad_max: 20,
+      },
+    });
+
+    const created = await supertest(app.server)
+      .post(`/residencias/${residencia1.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    expect(created.status).toBe(201);
+    const residenteId = created.body.id;
+
+    const res = await supertest(app.server)
+      .patch(`/residentes/${residenteId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ residencia_id: residencia2.id });
+
+    expect(res.status).toBe(200);
+
+    const residenteEnDb = await prisma.residente.findUnique({ where: { id: residenteId } });
+    expect(residenteEnDb?.residencia_id).toBe(residencia2.id);
+
+    const userEnDb = await prisma.user.findFirst({ where: { email: residenteBase.email } });
+    expect(userEnDb?.residencia_id).toBe(residencia2.id);
+  });
+
+  it("T-4.2: retorna 404 si el nuevo residencia_id no existe", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const created = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    const res = await supertest(app.server)
+      .patch(`/residentes/${created.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ residencia_id: 99999 });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("T-4.2: no toca User.residencia_id si residencia_id no está en el body", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const created = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    expect(created.status).toBe(201);
+    const residenteId = created.body.id;
+
+    const userAntes = await prisma.user.findFirst({ where: { email: residenteBase.email } });
+    const residenciaIdAntes = userAntes?.residencia_id;
+
+    const res = await supertest(app.server)
+      .patch(`/residentes/${residenteId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ carrera: "Medicina" });
+
+    expect(res.status).toBe(200);
+
+    const userDespues = await prisma.user.findFirst({ where: { email: residenteBase.email } });
+    expect(userDespues?.residencia_id).toBe(residenciaIdAntes);
+  });
 });

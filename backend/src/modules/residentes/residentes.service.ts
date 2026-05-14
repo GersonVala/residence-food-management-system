@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { residentesRepository, type CreateResidenteData, type UpdateResidenteData } from "./residentes.repository.js";
+import { residentesRepository, type CreateResidenteData, type UpdateResidenteData, type ResidenteListado, type ResidenteDetalle } from "./residentes.repository.js";
 import { residenciasRepository } from "../residencias/residencias.repository.js";
 import type { Residente } from "@prisma/client";
 
@@ -22,11 +22,16 @@ function conflict(mensaje: string): never {
 }
 
 export const residentesService = {
+  // T-2.2: List all residentes across all residencias (ADMIN_GLOBAL only)
+  async listarTodos(): Promise<ResidenteListado[]> {
+    return residentesRepository.findAll();
+  },
+
   async listar(residencia_id: number): Promise<Residente[]> {
     return residentesRepository.findAllByResidencia(residencia_id);
   },
 
-  async obtener(id: number): Promise<Residente> {
+  async obtener(id: number): Promise<ResidenteDetalle> {
     const residente = await residentesRepository.findById(id);
     if (!residente || !residente.activo) notFound();
     return residente;
@@ -55,6 +60,18 @@ export const residentesService = {
     if (data.dni) {
       const existente = await residentesRepository.findByDni(data.dni);
       if (existente && existente.id !== id) conflict("Ya existe un residente con ese DNI");
+    }
+
+    // T-2.5 (service): validate target residencia exists when changing
+    if (data.residencia_id !== undefined) {
+      const residencia = await residenciasRepository.findById(data.residencia_id);
+      if (!residencia || !residencia.activo) {
+        throw Object.assign(new Error("Residencia no encontrada"), {
+          statusCode: 404,
+          error: "Not Found",
+          mensaje: "Residencia no encontrada",
+        });
+      }
     }
 
     return residentesRepository.update(id, data);

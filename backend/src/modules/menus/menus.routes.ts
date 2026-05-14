@@ -50,6 +50,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
       video_url?: string;
       dificultad: string;
       tiempo_min: number;
+      personas_base: number;
     };
   }>(
     "/residencias/:residencia_id/menus",
@@ -58,7 +59,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         body: {
           type: "object",
-          required: ["nombre", "dificultad", "tiempo_min"],
+          required: ["nombre", "dificultad", "tiempo_min", "personas_base"],
           properties: {
             nombre: { type: "string", minLength: 1 },
             descripcion: { type: "string" },
@@ -66,6 +67,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
             video_url: { type: "string" },
             dificultad: { type: "string", enum: ["FACIL", "MEDIO", "DIFICIL"] },
             tiempo_min: { type: "integer", minimum: 1 },
+            personas_base: { type: "integer", minimum: 1 },
           },
           additionalProperties: false,
         },
@@ -96,6 +98,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
       video_url?: string;
       dificultad?: string;
       tiempo_min?: number;
+      personas_base?: number;
     };
   }>(
     "/menus/:id",
@@ -111,6 +114,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
             video_url: { type: "string" },
             dificultad: { type: "string", enum: ["FACIL", "MEDIO", "DIFICIL"] },
             tiempo_min: { type: "integer", minimum: 1 },
+            personas_base: { type: "integer", minimum: 1 },
           },
           additionalProperties: false,
         },

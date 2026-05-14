@@ -2,17 +2,13 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { removeToken, decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { cn } from '@/lib/utils'
 import {
-  Home, Building2, Users, CalendarDays, BookOpen, Package, LogOut
+  Home, Building2, Users, Package, LogOut
 } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
   { to: '/residencias', icon: Building2, label: 'Residencias', roles: ['ADMIN_GLOBAL'] },
   { to: '/residentes', icon: Users, label: 'Residentes' },
-  { to: '/grupos', icon: Users, label: 'Grupos' },
-  { to: '/turnos', icon: CalendarDays, label: 'Turnos' },
-  { to: '/menus', icon: BookOpen, label: 'Menús' },
-  { to: '/stock', icon: Package, label: 'Stock' },
   { to: '/alimentos', icon: Package, label: 'Alimentos' },
 ]
 

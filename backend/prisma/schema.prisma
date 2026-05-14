@@ -67,9 +67,10 @@ model User {
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
 
-  residencia    Residencia?    @relation(fields: [residencia_id], references: [id])
+  residencia    Residencia?       @relation(fields: [residencia_id], references: [id])
   residente     Residente?
   auditoria     AuditoriaLog[]
+  movimientos   MovimientoStock[]
 
   @@map("users")
 }
@@ -82,12 +83,14 @@ model Residencia {
   provincia      String
   capacidad_max  Int
   rollback_horas Int      @default(2)
+  imagen_url     String?
   activo         Boolean  @default(true)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
   users          User[]
   residentes     Residente[]
+  fotos          ResidenciaFoto[]
   grupos         GrupoCocina[]
   turnos         TurnoCocina[]
   stock          Stock[]
@@ -95,6 +98,19 @@ model Residencia {
   auditoria      AuditoriaLog[]
 
   @@map("residencias")
+}
+
+model ResidenciaFoto {
+  id            Int        @id @default(autoincrement())
+  residencia_id Int
+  url           String
+  orden         Int        @default(0)
+  created_at    DateTime   @default(now())
+
+  residencia    Residencia @relation(fields: [residencia_id], references: [id], onDelete: Cascade)
+
+  @@index([residencia_id, orden])
+  @@map("residencia_fotos")
 }
 
 model Residente {
@@ -180,16 +196,19 @@ model Categoria {
 }
 
 model Alimento {
-  id            Int      @id @default(autoincrement())
-  nombre        String
-  marca         String?
-  unidad_base   Unidad
-  categoria_id  Int
-  calorias      Float?
-  proteinas     Float?
-  carbohidratos Float?
-  grasas        Float?
-  ia_verificado Boolean  @default(false)
+  id               Int      @id @default(autoincrement())
+  nombre           String
+  marca            String?
+  unidad_base      Unidad
+  contenido_neto   Float?
+  unidad_contenido Unidad?
+  imagen_url       String?
+  categoria_id     Int
+  calorias         Float?
+  proteinas        Float?
+  carbohidratos    Float?
+  grasas           Float?
+  ia_verificado    Boolean  @default(false)
 
   categoria     Categoria        @relation(fields: [categoria_id], references: [id])
   stock         Stock[]
@@ -224,12 +243,14 @@ model MovimientoStock {
   tipo         TipoMovimiento
   cantidad     Float
   residente_id Int?
+  user_id      Int?
   turno_id     Int?
   motivo       String?
   created_at   DateTime       @default(now())
 
   stock        Stock        @relation(fields: [stock_id], references: [id])
   residente    Residente?   @relation(fields: [residente_id], references: [id])
+  user         User?        @relation(fields: [user_id], references: [id])
   turno        TurnoCocina? @relation(fields: [turno_id], references: [id])
 
   @@map("movimientos_stock")
@@ -243,6 +264,7 @@ model Menu {
   video_url    String?
   dificultad   Dificultad
   tiempo_min   Int
+  personas_base Int       @default(1)
   residencia_id Int
   activo       Boolean    @default(true)
   created_at   DateTime   @default(now())

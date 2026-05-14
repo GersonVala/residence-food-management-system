@@ -1,5 +1,7 @@
 import { stockRepository, type CreateAlimentoInput, type CreateStockInput, type CreateMovimientoInput } from "./stock.repository.js";
 import { prisma } from "../../shared/prisma/client.js";
+import { saveUpload, unlinkSafe } from "../uploads/uploads.helper.js";
+import type { MultipartFile } from "@fastify/multipart";
 
 function notFound(mensaje: string): never {
   throw { statusCode: 404, error: "Not Found", mensaje };
@@ -76,6 +78,19 @@ export const stockService = {
     return stockRepository.updateAlimento(id, data);
   },
 
+  async subirImagenAlimento(id: number, file: MultipartFile) {
+    const alimento = await stockRepository.findAlimentoById(id);
+    if (!alimento) notFound("Alimento no encontrado");
+
+    const imagen_url = await saveUpload({ file, subfolder: "alimentos" });
+
+    if (alimento.imagen_url) {
+      await unlinkSafe(alimento.imagen_url);
+    }
+
+    return stockRepository.updateAlimento(id, { imagen_url });
+  },
+
   async eliminarAlimento(id: number) {
     const alimento = await stockRepository.findAlimentoById(id);
     if (!alimento) notFound("Alimento no encontrado");
@@ -98,14 +113,31 @@ export const stockService = {
     return stock;
   },
 
-  async crearStock(data: CreateStockInput) {
+  async crearStock(data: CreateStockInput, user_id?: number) {
     const residencia = await prisma.residencia.findUnique({ where: { id: data.residencia_id } });
     if (!residencia || !residencia.activo) notFound("Residencia no encontrada");
 
     const alimento = await stockRepository.findAlimentoById(data.alimento_id);
     if (!alimento) notFound("Alimento no encontrado");
 
-    return stockRepository.createStock(data);
+    const stock = await prisma.$transaction(async (tx) => {
+      const s = await tx.stock.create({
+        data,
+        include: { alimento: { include: { categoria: true } } },
+      });
+      await tx.movimientoStock.create({
+        data: {
+          stock_id: s.id,
+          tipo: "ENTRADA",
+          cantidad: data.cantidad,
+          ...(user_id ? { user_id } : {}),
+          motivo: "Entrada inicial",
+        },
+      });
+      return s;
+    });
+
+    return stock;
   },
 
   async actualizarStock(id: number, data: Partial<Omit<CreateStockInput, "alimento_id" | "residencia_id">>) {

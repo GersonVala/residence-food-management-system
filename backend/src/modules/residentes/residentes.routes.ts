@@ -11,6 +11,7 @@ function handleError(err: unknown, reply: FastifyReply) {
   throw err;
 }
 
+// T-2.7: schemaBase now includes residencia_id so PATCH can accept it
 const schemaBase = {
   type: "object",
   properties: {
@@ -23,11 +24,27 @@ const schemaBase = {
     carrera: { type: "string", minLength: 1 },
     ciudad_origen: { type: "string", minLength: 1 },
     fecha_ingreso: { type: "string", format: "date-time" },
+    residencia_id: { type: "integer", minimum: 1 },
   },
   additionalProperties: false,
 };
 
 export async function residentesRoutes(app: FastifyInstance): Promise<void> {
+  // T-2.3: GET /residentes — global listing, ADMIN_GLOBAL only
+  // Must be registered BEFORE /:id routes to avoid Fastify path conflicts
+  app.get(
+    "/residentes",
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL")] },
+    async (_request, reply) => {
+      try {
+        const residentes = await residentesService.listarTodos();
+        return reply.status(200).send(residentes);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
   // GET /residencias/:residencia_id/residentes
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/residentes",
@@ -113,6 +130,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
       carrera: string;
       ciudad_origen: string;
       fecha_ingreso: string;
+      residencia_id: number; // T-2.7: ADMIN_GLOBAL can reassign residente to another residencia
     }>;
   }>(
     "/residentes/:id",

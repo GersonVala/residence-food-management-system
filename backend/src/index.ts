@@ -4,6 +4,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
+import multipart from "@fastify/multipart";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { residenciasRoutes } from "./modules/residencias/residencias.routes.js";
 import { residentesRoutes } from "./modules/residentes/residentes.routes.js";
@@ -11,6 +12,7 @@ import { gruposRoutes } from "./modules/grupos/grupos.routes.js";
 import { menusRoutes } from "./modules/menus/menus.routes.js";
 import { turnosRoutes } from "./modules/turnos/turnos.routes.js";
 import { stockRoutes } from "./modules/stock/stock.routes.js";
+import { uploadsRoutes } from "./modules/uploads/uploads.routes.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -45,10 +47,17 @@ await app.register(jwt, {
   sign: { expiresIn: '7d' },
 });
 
+await app.register(multipart, {
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+  },
+});
+
 // ============================================================
 // Módulos
 // ============================================================
 
+await app.register(uploadsRoutes);
 await app.register(authRoutes);
 await app.register(residenciasRoutes);
 await app.register(residentesRoutes);
