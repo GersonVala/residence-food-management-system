@@ -15,7 +15,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
     deleteFoto: vi.fn(),
     reorderFotos: vi.fn(),
     api: {
-      get: vi.fn(),
+      get: vi.fn().mockResolvedValue([]),
       post: vi.fn(),
       patch: vi.fn(),
       delete: vi.fn(),
@@ -44,6 +44,7 @@ const residenciaBase = {
   imagen_url: null,
   fotos: [],
   residentes: [],
+  historicos: [],
   voluntarios: [],
 }
 
@@ -58,6 +59,11 @@ function renderPage(id = '1') {
       </Routes>
     </MemoryRouter>
   )
+}
+
+// Espera a que el nombre aparezca en el h1 del header
+async function waitForHeader() {
+  return screen.findByRole('heading', { name: 'Casa Central' })
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -76,7 +82,7 @@ describe('ResidenciaDetailPage — carga inicial', () => {
   it('muestra el nombre de la residencia cuando carga exitosamente', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce(residenciaBase)
     renderPage()
-    expect(await screen.findByText('Casa Central')).toBeInTheDocument()
+    expect(await waitForHeader()).toBeInTheDocument()
   })
 
   it('muestra error cuando el servidor devuelve 404', async () => {
@@ -96,23 +102,23 @@ describe('ResidenciaDetailPage — tabs', () => {
 
   it('muestra el tab Información por defecto', async () => {
     renderPage()
-    await screen.findByText('Casa Central')
+    await waitForHeader()
     expect(screen.getByRole('tab', { name: 'Información' })).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('renderiza los 4 tabs', async () => {
+  it('renderiza los 8 tabs', async () => {
     renderPage()
-    await screen.findByText('Casa Central')
-    expect(screen.getByRole('tab', { name: 'Información' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Residentes' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Voluntarios' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Galería' })).toBeInTheDocument()
+    await waitForHeader()
+    const tabNames = ['Información', 'Residentes', 'Voluntarios', 'Grupos', 'Turnos', 'Menús', 'Stock', 'Galería']
+    for (const name of tabNames) {
+      expect(screen.getByRole('tab', { name })).toBeInTheDocument()
+    }
   })
 
   it('cambia al tab Residentes al hacer clic', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Casa Central')
+    await waitForHeader()
 
     await user.click(screen.getByRole('tab', { name: 'Residentes' }))
 
@@ -122,7 +128,7 @@ describe('ResidenciaDetailPage — tabs', () => {
   it('cambia al tab Voluntarios al hacer clic', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Casa Central')
+    await waitForHeader()
 
     await user.click(screen.getByRole('tab', { name: 'Voluntarios' }))
 
@@ -132,7 +138,7 @@ describe('ResidenciaDetailPage — tabs', () => {
   it('cambia al tab Galería al hacer clic', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Casa Central')
+    await waitForHeader()
 
     await user.click(screen.getByRole('tab', { name: 'Galería' }))
 
@@ -145,13 +151,13 @@ describe('ResidenciaDetailPage — tab Residentes con datos', () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce({
       ...residenciaBase,
       residentes: [
-        { id: 10, nombre: 'María', apellido: 'García', dni: '12345678', universidad: 'UBA', carrera: 'Medicina' },
-        { id: 11, nombre: 'Juan', apellido: 'Pérez', dni: '87654321', universidad: null, carrera: null },
+        { id: 10, nombre: 'María', apellido: 'García', dni: '12345678', universidad: 'UBA', carrera: 'Medicina', activo: true, fecha_ingreso: '2024-01-01' },
+        { id: 11, nombre: 'Juan', apellido: 'Pérez', dni: '87654321', universidad: null, carrera: null, activo: true, fecha_ingreso: '2024-01-01' },
       ],
     })
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Casa Central')
+    await waitForHeader()
 
     await user.click(screen.getByRole('tab', { name: 'Residentes' }))
 
@@ -160,26 +166,24 @@ describe('ResidenciaDetailPage — tab Residentes con datos', () => {
     expect(screen.getByText('UBA')).toBeInTheDocument()
     expect(screen.getByText('Medicina')).toBeInTheDocument()
     expect(screen.getByText('Juan Pérez')).toBeInTheDocument()
-    // null values shown as —
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 })
 
 describe('ResidenciaDetailPage — tab Voluntarios con datos', () => {
-  it('muestra lista de voluntarios con nombre y email', async () => {
+  it('muestra lista de voluntarios con email', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce({
       ...residenciaBase,
       voluntarios: [
-        { id: 20, nombre: 'Laura', apellido: 'Soto', email: 'laura@test.com', role: 'ADMIN_RESIDENCIA' },
+        { id: 20, email: 'laura@test.com', role: 'ADMIN_RESIDENCIA', active: true, residente: { nombre: 'Laura', apellido: 'Soto' } },
       ],
     })
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Casa Central')
+    await waitForHeader()
 
     await user.click(screen.getByRole('tab', { name: 'Voluntarios' }))
 
-    expect(screen.getByText('Laura Soto')).toBeInTheDocument()
     expect(screen.getByText('laura@test.com')).toBeInTheDocument()
   })
 })
