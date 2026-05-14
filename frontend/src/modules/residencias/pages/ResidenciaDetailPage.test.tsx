@@ -61,9 +61,12 @@ function renderPage(id = '1') {
   )
 }
 
-// Espera a que el h1 del header aparezca (único por data-testid)
-async function waitForHeader() {
+async function waitForPage() {
   return screen.findByTestId('residencia-nombre')
+}
+
+function clickTab(key: string) {
+  return userEvent.setup().click(screen.getByTestId(`tab-${key}`))
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -82,7 +85,7 @@ describe('ResidenciaDetailPage — carga inicial', () => {
   it('muestra el nombre de la residencia cuando carga exitosamente', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce(residenciaBase)
     renderPage()
-    const h1 = await screen.findByTestId('residencia-nombre')
+    const h1 = await waitForPage()
     expect(h1).toHaveTextContent('Casa Central')
   })
 
@@ -103,51 +106,46 @@ describe('ResidenciaDetailPage — tabs', () => {
 
   it('muestra el tab Información por defecto', async () => {
     renderPage()
-    await waitForHeader()
-    expect(screen.getByRole('tab', { name: 'Información' })).toHaveAttribute('aria-selected', 'true')
+    await waitForPage()
+    expect(screen.getByTestId('tab-informacion')).toHaveAttribute('aria-selected', 'true')
   })
 
   it('renderiza los 8 tabs', async () => {
     renderPage()
-    await waitForHeader()
-    const tabNames = ['Información', /Residentes/, /Voluntarios/, 'Grupos', 'Turnos', 'Menús', 'Stock', 'Galería']
-    for (const name of tabNames) {
-      expect(screen.getByRole('tab', { name })).toBeInTheDocument()
+    await waitForPage()
+    const keys = ['informacion', 'residentes', 'voluntarios', 'grupos', 'turnos', 'menus', 'stock', 'galeria']
+    for (const key of keys) {
+      expect(screen.getByTestId(`tab-${key}`)).toBeInTheDocument()
     }
   })
 
   it('cambia al tab Residentes al hacer clic', async () => {
-    const user = userEvent.setup()
     renderPage()
-    await waitForHeader()
-
-    await user.click(screen.getByRole('tab', { name: /Residentes/ }))
-
+    await waitForPage()
+    await clickTab('residentes')
     expect(screen.getByText('Esta residencia no tiene residentes.')).toBeInTheDocument()
   })
 
   it('cambia al tab Voluntarios al hacer clic', async () => {
-    const user = userEvent.setup()
     renderPage()
-    await waitForHeader()
-
-    await user.click(screen.getByRole('tab', { name: /Voluntarios/ }))
-
+    await waitForPage()
+    await clickTab('voluntarios')
     expect(screen.getByText('Esta residencia no tiene voluntarios asignados.')).toBeInTheDocument()
   })
 
   it('cambia al tab Galería al hacer clic', async () => {
-    const user = userEvent.setup()
     renderPage()
-    await waitForHeader()
-
-    await user.click(screen.getByRole('tab', { name: 'Galería' }))
-
+    await waitForPage()
+    await clickTab('galeria')
     expect(screen.getByText('No hay fotos en la galería.')).toBeInTheDocument()
   })
 })
 
 describe('ResidenciaDetailPage — tab Residentes con datos', () => {
+  beforeEach(() => {
+    mockGetResidenciaDetalle.mockReset()
+  })
+
   it('muestra tabla con nombre, DNI, universidad y carrera', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce({
       ...residenciaBase,
@@ -156,11 +154,9 @@ describe('ResidenciaDetailPage — tab Residentes con datos', () => {
         { id: 11, nombre: 'Juan', apellido: 'Pérez', dni: '87654321', universidad: null, carrera: null, activo: true, fecha_ingreso: '2024-01-01' },
       ],
     })
-    const user = userEvent.setup()
     renderPage()
-    await waitForHeader()
-
-    await user.click(screen.getByRole('tab', { name: /Residentes/ }))
+    await waitForPage()
+    await clickTab('residentes')
 
     expect(screen.getByText('María García')).toBeInTheDocument()
     expect(screen.getByText('12345678')).toBeInTheDocument()
@@ -172,6 +168,10 @@ describe('ResidenciaDetailPage — tab Residentes con datos', () => {
 })
 
 describe('ResidenciaDetailPage — tab Voluntarios con datos', () => {
+  beforeEach(() => {
+    mockGetResidenciaDetalle.mockReset()
+  })
+
   it('muestra lista de voluntarios con email', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce({
       ...residenciaBase,
@@ -179,11 +179,9 @@ describe('ResidenciaDetailPage — tab Voluntarios con datos', () => {
         { id: 20, email: 'laura@test.com', role: 'ADMIN_RESIDENCIA', active: true, residente: { nombre: 'Laura', apellido: 'Soto' } },
       ],
     })
-    const user = userEvent.setup()
     renderPage()
-    await waitForHeader()
-
-    await user.click(screen.getByRole('tab', { name: /Voluntarios/ }))
+    await waitForPage()
+    await clickTab('voluntarios')
 
     expect(screen.getByText('laura@test.com')).toBeInTheDocument()
   })

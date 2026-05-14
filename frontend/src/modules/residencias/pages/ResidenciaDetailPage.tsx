@@ -84,6 +84,7 @@ export default function ResidenciaDetailPage() {
               <button
                 key={t.key}
                 role="tab"
+                data-testid={`tab-${t.key}`}
                 aria-selected={tab === t.key}
                 onClick={() => setTab(t.key)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
