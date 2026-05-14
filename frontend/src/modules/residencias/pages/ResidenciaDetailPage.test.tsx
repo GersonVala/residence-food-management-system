@@ -110,7 +110,7 @@ describe('ResidenciaDetailPage — tabs', () => {
   it('renderiza los 8 tabs', async () => {
     renderPage()
     await waitForHeader()
-    const tabNames = ['Información', 'Residentes', 'Voluntarios', 'Grupos', 'Turnos', 'Menús', 'Stock', 'Galería']
+    const tabNames = ['Información', /Residentes/, /Voluntarios/, 'Grupos', 'Turnos', 'Menús', 'Stock', 'Galería']
     for (const name of tabNames) {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
@@ -121,7 +121,7 @@ describe('ResidenciaDetailPage — tabs', () => {
     renderPage()
     await waitForHeader()
 
-    await user.click(screen.getByRole('tab', { name: 'Residentes' }))
+    await user.click(screen.getByRole('tab', { name: /Residentes/ }))
 
     expect(screen.getByText('Esta residencia no tiene residentes.')).toBeInTheDocument()
   })
@@ -131,7 +131,7 @@ describe('ResidenciaDetailPage — tabs', () => {
     renderPage()
     await waitForHeader()
 
-    await user.click(screen.getByRole('tab', { name: 'Voluntarios' }))
+    await user.click(screen.getByRole('tab', { name: /Voluntarios/ }))
 
     expect(screen.getByText('Esta residencia no tiene voluntarios asignados.')).toBeInTheDocument()
   })
@@ -160,7 +160,7 @@ describe('ResidenciaDetailPage — tab Residentes con datos', () => {
     renderPage()
     await waitForHeader()
 
-    await user.click(screen.getByRole('tab', { name: 'Residentes' }))
+    await user.click(screen.getByRole('tab', { name: /Residentes/ }))
 
     expect(screen.getByText('María García')).toBeInTheDocument()
     expect(screen.getByText('12345678')).toBeInTheDocument()
@@ -183,7 +183,7 @@ describe('ResidenciaDetailPage — tab Voluntarios con datos', () => {
     renderPage()
     await waitForHeader()
 
-    await user.click(screen.getByRole('tab', { name: 'Voluntarios' }))
+    await user.click(screen.getByRole('tab', { name: /Voluntarios/ }))
 
     expect(screen.getByText('laura@test.com')).toBeInTheDocument()
   })
