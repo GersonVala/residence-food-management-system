@@ -1160,7 +1160,7 @@ function estadoStock(s: StockItem) {
   return { label: 'OK', color: 'bg-green-100 text-green-700' }
 }
 
-function StockRowDetail({ stockId, alimento }: { stockId: number; alimento: StockItem['alimento'] }) {
+function StockRowDetail({ stockId }: { stockId: number }) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -1339,7 +1339,7 @@ function StockTab({ residenciaId }: { residenciaId: number }) {
                       </td>
                     </tr>
                     {isExpanded && (
-                      <StockRowDetail stockId={s.id} alimento={s.alimento} />
+                      <StockRowDetail stockId={s.id} />
                     )}
                   </Fragment>
                 )
