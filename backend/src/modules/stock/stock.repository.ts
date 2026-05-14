@@ -5,6 +5,9 @@ export type CreateAlimentoInput = {
   nombre: string;
   marca?: string;
   unidad_base: Unidad;
+  contenido_neto?: number;
+  unidad_contenido?: Unidad;
+  imagen_url?: string;
   categoria_id: number;
   calorias?: number;
   proteinas?: number;
@@ -26,6 +29,7 @@ export type CreateMovimientoInput = {
   tipo: TipoMovimiento;
   cantidad: number;
   residente_id?: number;
+  user_id?: number;
   turno_id?: number;
   motivo?: string;
 };
@@ -127,6 +131,10 @@ export const stockRepository = {
     return prisma.movimientoStock.findMany({
       where: { stock_id },
       orderBy: { created_at: "desc" },
+      include: {
+        residente: { select: { nombre: true, apellido: true } },
+        user: { select: { email: true, role: true } },
+      },
     });
   },
 

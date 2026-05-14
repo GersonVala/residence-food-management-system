@@ -114,6 +114,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
       nombre: string;
       marca?: string;
       unidad_base: string;
+      contenido_neto?: number;
+      unidad_contenido?: string;
       categoria_id: number;
       calorias?: number;
       proteinas?: number;
@@ -132,6 +134,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
             nombre: { type: "string", minLength: 1 },
             marca: { type: "string" },
             unidad_base: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            contenido_neto: { type: "number", minimum: 0 },
+            unidad_contenido: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
             categoria_id: { type: "integer", minimum: 1 },
             calorias: { type: "number", minimum: 0 },
             proteinas: { type: "number", minimum: 0 },
@@ -144,12 +148,31 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const { unidad_base, ...rest } = request.body;
+        const { unidad_base, unidad_contenido, ...rest } = request.body;
         const alimento = await stockService.crearAlimento({
           ...rest,
           unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
+          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
         });
         return reply.status(201).send(alimento);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
+  // POST /alimentos/:id/imagen — subir imagen del alimento (multipart, guarda en disco)
+  app.post<{ Params: { id: string } }>(
+    "/alimentos/:id/imagen",
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    async (request, reply) => {
+      try {
+        const file = await request.file();
+        if (!file) {
+          return reply.status(400).send({ error: "Bad Request", mensaje: "No se envió ningún archivo" });
+        }
+        const alimento = await stockService.subirImagenAlimento(Number(request.params.id), file);
+        return reply.status(200).send({ id: alimento.id, imagen_url: alimento.imagen_url });
       } catch (err) {
         return handleError(err, reply);
       }
@@ -162,6 +185,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
       nombre?: string;
       marca?: string;
       unidad_base?: string;
+      contenido_neto?: number;
+      unidad_contenido?: string;
       categoria_id?: number;
       calorias?: number;
       proteinas?: number;
@@ -179,6 +204,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
             nombre: { type: "string", minLength: 1 },
             marca: { type: "string" },
             unidad_base: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            contenido_neto: { type: "number", minimum: 0 },
+            unidad_contenido: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
             categoria_id: { type: "integer", minimum: 1 },
             calorias: { type: "number", minimum: 0 },
             proteinas: { type: "number", minimum: 0 },
@@ -191,10 +218,11 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const { unidad_base, ...rest } = request.body;
+        const { unidad_base, unidad_contenido, ...rest } = request.body;
         const alimento = await stockService.actualizarAlimento(Number(request.params.id), {
           ...rest,
           ...(unidad_base ? { unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
         });
         return reply.status(200).send(alimento);
       } catch (err) {
@@ -271,12 +299,15 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const { unidad, fecha_vencimiento, ...rest } = request.body;
-        const stock = await stockService.crearStock({
-          ...rest,
-          residencia_id: Number(request.params.residencia_id),
-          unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
-          ...(fecha_vencimiento ? { fecha_vencimiento: new Date(fecha_vencimiento) } : {}),
-        });
+        const stock = await stockService.crearStock(
+          {
+            ...rest,
+            residencia_id: Number(request.params.residencia_id),
+            unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
+            ...(fecha_vencimiento ? { fecha_vencimiento: new Date(fecha_vencimiento) } : {}),
+          },
+          request.usuario?.id
+        );
         return reply.status(201).send(stock);
       } catch (err) {
         return handleError(err, reply);
