@@ -58,6 +58,7 @@ const menuBase = {
   nombre: "Milanesa napolitana",
   dificultad: "MEDIO",
   tiempo_min: 45,
+  personas_base: 4,
 };
 
 // ---------------------------------------------------------------------------
