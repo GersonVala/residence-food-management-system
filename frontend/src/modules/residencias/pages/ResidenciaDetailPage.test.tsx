@@ -123,7 +123,7 @@ describe('ResidenciaDetailPage — tabs', () => {
     renderPage()
     await waitForPage()
     await clickTab('residentes')
-    expect(screen.getByText('Esta residencia no tiene residentes.')).toBeInTheDocument()
+    expect(screen.getByText('Sin residentes activos.')).toBeInTheDocument()
   })
 
   it('cambia al tab Voluntarios al hacer clic', async () => {
