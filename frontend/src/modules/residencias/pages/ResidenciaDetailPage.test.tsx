@@ -61,12 +61,9 @@ function renderPage(id = '1') {
   )
 }
 
-// Espera a que el loading desaparezca y la página esté lista
+// Espera a que el h1 del header aparezca (único por data-testid)
 async function waitForHeader() {
-  await waitFor(() => {
-    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
-  })
-  return screen.getAllByText('Casa Central')[0]
+  return screen.findByTestId('residencia-nombre')
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -85,8 +82,8 @@ describe('ResidenciaDetailPage — carga inicial', () => {
   it('muestra el nombre de la residencia cuando carga exitosamente', async () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce(residenciaBase)
     renderPage()
-    await waitFor(() => expect(screen.queryByText('Cargando...')).not.toBeInTheDocument())
-    expect(screen.getAllByText('Casa Central').length).toBeGreaterThan(0)
+    const h1 = await screen.findByTestId('residencia-nombre')
+    expect(h1).toHaveTextContent('Casa Central')
   })
 
   it('muestra error cuando el servidor devuelve 404', async () => {

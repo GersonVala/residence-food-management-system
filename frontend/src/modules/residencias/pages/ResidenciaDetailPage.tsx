@@ -45,6 +45,7 @@ export default function ResidenciaDetailPage() {
     setLoading(true)
     getResidenciaDetalle(Number(id))
       .then(setResidencia)
+      .catch(() => setResidencia(null))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -64,7 +65,7 @@ export default function ResidenciaDetailPage() {
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{residencia.nombre}</h1>
+          <h1 data-testid="residencia-nombre" className="text-2xl font-bold text-gray-900">{residencia.nombre}</h1>
           <p className="text-sm text-gray-500">{residencia.ciudad}, {residencia.provincia}</p>
         </div>
         <Badge variant={residencia.activo ? 'success' : 'secondary'} className="ml-auto">
