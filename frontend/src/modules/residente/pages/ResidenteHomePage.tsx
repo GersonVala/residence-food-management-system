@@ -23,6 +23,19 @@ interface GrupoInfo {
   nombre: string
 }
 
+interface Integrante {
+  id: number
+  nombre: string
+  apellido: string
+}
+
+interface MenuGrupo {
+  id: number
+  nombre: string
+  dificultad: Dificultad
+  tiempo_min: number
+}
+
 interface Turno {
   id: number
   tipo: 'FIJO' | 'ROTATIVO'
@@ -79,6 +92,8 @@ export default function ResidenteHomePage() {
 
   const [residente, setResidente] = useState<ResidenteMe | null>(null)
   const [grupo, setGrupo] = useState<GrupoInfo | null>(null)
+  const [integrantes, setIntegrantes] = useState<Integrante[]>([])
+  const [menusGrupo, setMenusGrupo] = useState<MenuGrupo[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [menus, setMenus] = useState<Menu[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,6 +116,15 @@ export default function ResidenteHomePage() {
       return api.get<GrupoInfo | null>(`/residentes/${me.id}/grupo`)
     }).then(g => {
       setGrupo(g)
+      if (g) {
+        return Promise.all([
+          api.get<Integrante[]>(`/grupos/${g.grupo_id}/integrantes`),
+          api.get<MenuGrupo[]>(`/grupos/${g.grupo_id}/menus`),
+        ]).then(([ints, mgs]) => {
+          setIntegrantes(ints)
+          setMenusGrupo(mgs)
+        })
+      }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [residenciaId])
 
@@ -179,17 +203,53 @@ export default function ResidenteHomePage() {
                 <UtensilsCrossed size={15} className="text-purple-500" /> Mi grupo de cocina
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               {grupo ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                    <ChefHat size={20} className="text-purple-600" />
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                      <ChefHat size={20} className="text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{grupo.nombre}</p>
+                      <p className="text-xs text-gray-400">{misTurnos.length} turno{misTurnos.length !== 1 ? 's' : ''} asignado{misTurnos.length !== 1 ? 's' : ''}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{grupo.nombre}</p>
-                    <p className="text-xs text-gray-400">{misTurnos.length} turno{misTurnos.length !== 1 ? 's' : ''} asignado{misTurnos.length !== 1 ? 's' : ''}</p>
-                  </div>
-                </div>
+
+                  {integrantes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                        <Users size={12} /> Integrantes
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {integrantes.map(i => (
+                          <span key={i.id} className="text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-medium">
+                            {i.nombre} {i.apellido}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {menusGrupo.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                        <BookOpen size={12} /> Menús asignados
+                      </p>
+                      <div className="space-y-1.5">
+                        {menusGrupo.map(m => (
+                          <div key={m.id} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-800">{m.nombre}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${DIFICULTAD_COLOR[m.dificultad]}`}>{m.dificultad}</span>
+                              <span className="text-xs text-gray-400 flex items-center gap-0.5"><Clock size={10} /> {m.tiempo_min} min</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-gray-400 italic">No estás asignado a ningún grupo de cocina aún.</p>
               )}

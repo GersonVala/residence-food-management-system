@@ -126,7 +126,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // GET /grupos/:id/integrantes
   app.get<{ Params: { id: string } }>(
     "/grupos/:id/integrantes",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (request, reply) => {
       try {
         const integrantes = await gruposService.listarIntegrantes(Number(request.params.id));
