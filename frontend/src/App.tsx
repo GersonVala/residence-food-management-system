@@ -13,13 +13,13 @@ import AlimentoDetailPage from '@/modules/stock/pages/AlimentoDetailPage'
 import StockPage from '@/modules/stock/pages/StockPage'
 import MenusPage from '@/modules/menus/pages/MenusPage'
 import GruposPage from '@/modules/grupos/pages/GruposPage'
+import GrupoDetailPage from '@/modules/grupos/pages/GrupoDetailPage'
 import TurnosPage from '@/modules/turnos/pages/TurnosPage'
 import HistorialPage from '@/modules/historial/pages/HistorialPage'
 import ResidenteHomePage from '@/modules/residente/pages/ResidenteHomePage'
 import ResidenteMenusPage from '@/modules/residente/pages/ResidenteMenusPage'
 import ResidenteStockPage from '@/modules/residente/pages/ResidenteStockPage'
 import ResidentePerfilPage from '@/modules/residente/pages/ResidentePerfilPage'
-import ResidenteGrupoPage from '@/modules/residente/pages/ResidenteGrupoPage'
 
 export default function App() {
   return (
@@ -45,6 +45,7 @@ export default function App() {
         </Route>
         <Route element={<RequireRole roles={['ADMIN_RESIDENCIA']} />}>
           <Route path="/grupos" element={<GruposPage />} />
+          <Route path="/grupos/:id" element={<GrupoDetailPage />} />
           <Route path="/turnos" element={<TurnosPage />} />
           <Route path="/historial" element={<HistorialPage />} />
           <Route path="/menus" element={<MenusPage />} />
@@ -56,7 +57,6 @@ export default function App() {
           <Route path="/mis-menus" element={<ResidenteMenusPage />} />
           <Route path="/mi-stock" element={<ResidenteStockPage />} />
           <Route path="/mi-perfil" element={<ResidentePerfilPage />} />
-          <Route path="/mi-grupo" element={<ResidenteGrupoPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
