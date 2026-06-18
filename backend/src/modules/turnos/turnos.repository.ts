@@ -1,11 +1,13 @@
 import { prisma } from "../../shared/prisma/client.js";
-import type { Franja } from "@prisma/client";
+import type { Franja, TipoTurno } from "@prisma/client";
 
 export type CreateTurnoInput = {
   grupo_id: number;
   residencia_id: number;
-  fecha: Date;
+  tipo: TipoTurno;
   franja: Franja;
+  dia_semana?: number;  // FIJO
+  fecha?: Date;         // ROTATIVO
 };
 
 export type CreateSeleccionInput = {
@@ -20,11 +22,8 @@ export const turnosRepository = {
   findAll(residencia_id: number) {
     return prisma.turnoCocina.findMany({
       where: { residencia_id, activo: true },
-      orderBy: [{ fecha: "asc" }, { franja: "asc" }],
-      include: {
-        grupo: true,
-        selecciones: { include: { menu: true, residente: true } },
-      },
+      orderBy: [{ tipo: "asc" }, { dia_semana: "asc" }, { fecha: "asc" }, { franja: "asc" }],
+      include: { grupo: true },
     });
   },
 
@@ -38,16 +37,22 @@ export const turnosRepository = {
     });
   },
 
-  findByGrupoFechaFranja(grupo_id: number, fecha: Date, franja: Franja) {
-    return prisma.turnoCocina.findUnique({
-      where: { grupo_id_fecha_franja: { grupo_id, fecha, franja } },
+  findFijoConflicto(grupo_id: number, dia_semana: number, franja: Franja) {
+    return prisma.turnoCocina.findFirst({
+      where: { grupo_id, dia_semana, franja, tipo: "FIJO", activo: true },
+    });
+  },
+
+  findRotativoConflicto(grupo_id: number, fecha: Date, franja: Franja) {
+    return prisma.turnoCocina.findFirst({
+      where: { grupo_id, fecha, franja, tipo: "ROTATIVO", activo: true },
     });
   },
 
   create(data: CreateTurnoInput) {
     return prisma.turnoCocina.create({
       data,
-      include: { grupo: true, selecciones: true },
+      include: { grupo: true },
     });
   },
 

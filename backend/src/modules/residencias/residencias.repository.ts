@@ -26,6 +26,7 @@ type ResidenteBasico = {
   carrera: string;
   activo: boolean;
   fecha_ingreso: Date;
+  fecha_retiro: Date | null;
 };
 
 export type ResidenciaConRelaciones = Residencia & {
@@ -81,6 +82,7 @@ export const residenciasRepository = {
             carrera: true,
             activo: true,
             fecha_ingreso: true,
+            fecha_retiro: true,
           },
           orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
         },

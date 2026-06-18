@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Pencil, Save, X, ImagePlus } from 'lucide-react'
 
-const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES', 'PAQUETES'] as const
+const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES'] as const
 
 interface Categoria { id: number; nombre: string }
 
@@ -96,7 +96,7 @@ export default function AlimentoDetailPage() {
         categoria_id: Number(form.categoria_id),
       }
       if (form.marca) payload.marca = form.marca
-      if (form.unidad_base === 'PAQUETES' && form.contenido_neto) {
+      if (form.unidad_base === 'UNIDADES' && form.contenido_neto) {
         payload.contenido_neto = Number(form.contenido_neto)
         payload.unidad_contenido = form.unidad_contenido
       }
@@ -250,11 +250,11 @@ export default function AlimentoDetailPage() {
           {campo('Marca', 'marca')}
           {campoSelect('Unidad base', 'unidad_base', UNIDADES)}
           {campoCategoria()}
-          {(form.unidad_base === 'PAQUETES' || alimento.unidad_base === 'PAQUETES') && (
+          {(form.unidad_base === 'UNIDADES' || alimento.unidad_base === 'UNIDADES') && (
             <>
               {campo('Contenido neto', 'contenido_neto', 'number')}
               {editing
-                ? campoSelect('Unidad contenido', 'unidad_contenido', UNIDADES.filter(u => u !== 'PAQUETES'))
+                ? campoSelect('Unidad contenido', 'unidad_contenido', UNIDADES.filter(u => u !== 'UNIDADES'))
                 : (
                   <div className="space-y-1">
                     <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Unidad contenido</p>

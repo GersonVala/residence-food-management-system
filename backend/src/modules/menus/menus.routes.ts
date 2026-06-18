@@ -12,10 +12,94 @@ function handleError(err: unknown, reply: FastifyReply) {
 }
 
 export async function menusRoutes(app: FastifyInstance): Promise<void> {
+  // GET /menus/biblioteca
+  app.get(
+    "/menus/biblioteca",
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    async (_request, reply) => {
+      try {
+        const menus = await menusService.listarBiblioteca();
+        return reply.status(200).send(menus);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
+  // POST /menus/:id/clonar
+  app.post<{ Params: { id: string }; Body: { residencia_id: number } }>(
+    "/menus/:id/clonar",
+    {
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      schema: {
+        body: {
+          type: "object",
+          required: ["residencia_id"],
+          properties: { residencia_id: { type: "integer", minimum: 1 } },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const menu = await menusService.clonar(
+          Number(request.params.id),
+          request.body.residencia_id
+        );
+        return reply.status(201).send(menu);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
+  // POST /menus (biblioteca — solo ADMIN_GLOBAL)
+  app.post<{
+    Body: {
+      nombre: string;
+      descripcion?: string;
+      dificultad: string;
+      tiempo_min: number;
+      personas_base: number;
+    };
+  }>(
+    "/menus",
+    {
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL")],
+      schema: {
+        body: {
+          type: "object",
+          required: ["nombre", "dificultad", "tiempo_min", "personas_base"],
+          properties: {
+            nombre: { type: "string", minLength: 1 },
+            descripcion: { type: "string" },
+            dificultad: { type: "string", enum: ["FACIL", "MEDIO", "DIFICIL"] },
+            tiempo_min: { type: "integer", minimum: 1 },
+            personas_base: { type: "integer", minimum: 1 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { dificultad, ...rest } = request.body;
+        const menu = await menusService.crear({
+          ...rest,
+          dificultad: dificultad as "FACIL" | "MEDIO" | "DIFICIL",
+          residencia_id: null,
+        });
+        return reply.status(201).send(menu);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
   // GET /residencias/:residencia_id/menus
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/menus",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (request, reply) => {
       try {
         const menus = await menusService.listar(Number(request.params.residencia_id));
@@ -29,7 +113,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // GET /menus/:id
   app.get<{ Params: { id: string } }>(
     "/menus/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (request, reply) => {
       try {
         const menu = await menusService.obtener(Number(request.params.id));
@@ -169,7 +253,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
             alimento_id: { type: "integer", minimum: 1 },
             cantidad_base: { type: "number", minimum: 0 },
             cantidad_por_persona: { type: "number", minimum: 0 },
-            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
           },
           additionalProperties: false,
         },
@@ -180,7 +264,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
         const { unidad, ...rest } = request.body;
         const ingrediente = await menusService.agregarIngrediente(Number(request.params.id), {
           ...rest,
-          unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
+          unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
         });
         return reply.status(201).send(ingrediente);
       } catch (err) {
@@ -203,7 +287,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             cantidad_base: { type: "number", minimum: 0 },
             cantidad_por_persona: { type: "number", minimum: 0 },
-            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
           },
           additionalProperties: false,
         },
@@ -217,7 +301,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
           Number(request.params.alimento_id),
           {
             ...rest,
-            ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+            ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
           }
         );
         return reply.status(200).send(ingrediente);
@@ -238,6 +322,24 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
           Number(request.params.alimento_id)
         );
         return reply.status(204).send();
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
+  // POST /menus/:id/imagen — subir imagen (multipart)
+  app.post<{ Params: { id: string } }>(
+    "/menus/:id/imagen",
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    async (request, reply) => {
+      try {
+        const file = await request.file();
+        if (!file) {
+          return reply.status(400).send({ error: "Bad Request", mensaje: "No se envió ningún archivo" });
+        }
+        const menu = await menusService.subirImagen(Number(request.params.id), file);
+        return reply.status(200).send({ id: menu.id, imagen_url: menu.imagen_url });
       } catch (err) {
         return handleError(err, reply);
       }

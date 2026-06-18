@@ -1,6 +1,7 @@
 import { gruposRepository } from "./grupos.repository.js";
 import { residenciasRepository } from "../residencias/residencias.repository.js";
 import { residentesRepository } from "../residentes/residentes.repository.js";
+import { prisma } from "../../shared/prisma/client.js";
 import type { GrupoCocina, GrupoIntegrante } from "@prisma/client";
 
 function notFound(mensaje = "Grupo no encontrado"): never {
@@ -60,6 +61,9 @@ export const gruposService = {
     const yaEsMiembro = await gruposRepository.findIntegrante(grupo_id, residente_id);
     if (yaEsMiembro) conflict("El residente ya es integrante activo de este grupo");
 
+    const enOtroGrupo = await gruposRepository.findIntegranteEnCualquierGrupo(residente_id);
+    if (enOtroGrupo) conflict(`El residente ya pertenece al grupo "${enOtroGrupo.grupo.nombre}"`);
+
     return gruposRepository.agregarIntegrante(grupo_id, residente_id);
   },
 
@@ -70,5 +74,31 @@ export const gruposService = {
     if (!integrante) notFound("El residente no es integrante activo de este grupo");
 
     await gruposRepository.quitarIntegrante(integrante.id);
+  },
+
+  async listarMenus(grupo_id: number) {
+    await gruposService.obtener(grupo_id);
+    return gruposRepository.findMenus(grupo_id);
+  },
+
+  async agregarMenu(grupo_id: number, menu_id: number) {
+    await gruposService.obtener(grupo_id);
+
+    const menu = await prisma.menu.findUnique({ where: { id: menu_id } });
+    if (!menu || !menu.activo) notFound("Menú no encontrado");
+
+    const yaAsignado = await gruposRepository.findMenuGrupo(grupo_id, menu_id);
+    if (yaAsignado) conflict("Este menú ya está asignado al grupo");
+
+    return gruposRepository.agregarMenu(grupo_id, menu_id);
+  },
+
+  async quitarMenu(grupo_id: number, menu_id: number) {
+    await gruposService.obtener(grupo_id);
+
+    const asignacion = await gruposRepository.findMenuGrupo(grupo_id, menu_id);
+    if (!asignacion) notFound("Este menú no está asignado al grupo");
+
+    await gruposRepository.quitarMenu(grupo_id, menu_id);
   },
 };

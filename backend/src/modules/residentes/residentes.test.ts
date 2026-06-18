@@ -43,6 +43,7 @@ const residenteBase = {
   universidad: "UBA",
   carrera: "Ingeniería",
   ciudad_origen: "Córdoba",
+  provincia_origen: "Córdoba",
   fecha_ingreso: new Date("2024-03-01").toISOString(),
 };
 
@@ -277,7 +278,8 @@ describe("DELETE /residentes/:id", () => {
 
     const res = await supertest(app.server)
       .delete(`/residentes/${created.body.id}`)
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", `Bearer ${token}`)
+      .send({ motivo_baja: "Egreso" });
 
     expect(res.status).toBe(204);
 
@@ -291,7 +293,8 @@ describe("DELETE /residentes/:id", () => {
 
     const res = await supertest(app.server)
       .delete("/residentes/999")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", `Bearer ${token}`)
+      .send({ motivo_baja: "No existe" });
     expect(res.status).toBe(404);
   });
 
@@ -311,7 +314,8 @@ describe("DELETE /residentes/:id", () => {
 
     const res = await supertest(app.server)
       .delete(`/residentes/${residenteId}`)
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", `Bearer ${token}`)
+      .send({ motivo_baja: "Test de baja" });
 
     expect(res.status).toBe(204);
 
@@ -390,7 +394,8 @@ describe("GET /residentes", () => {
     // Soft delete the residente
     await supertest(app.server)
       .delete(`/residentes/${created.body.id}`)
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", `Bearer ${token}`)
+      .send({ motivo_baja: "Test de baja" });
 
     const res = await supertest(app.server)
       .get("/residentes")

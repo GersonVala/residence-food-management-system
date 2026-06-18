@@ -13,6 +13,7 @@ import { menusRoutes } from "./modules/menus/menus.routes.js";
 import { turnosRoutes } from "./modules/turnos/turnos.routes.js";
 import { stockRoutes } from "./modules/stock/stock.routes.js";
 import { uploadsRoutes } from "./modules/uploads/uploads.routes.js";
+import { historialRoutes } from "./modules/historial/historial.routes.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -65,6 +66,7 @@ await app.register(gruposRoutes);
 await app.register(menusRoutes);
 await app.register(turnosRoutes);
 await app.register(stockRoutes);
+await app.register(historialRoutes);
 
 // ============================================================
 // Rutas base

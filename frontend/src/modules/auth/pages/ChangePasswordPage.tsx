@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
+import { decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,8 +19,11 @@ export default function ChangePasswordPage() {
     setError('')
     setLoading(true)
     try {
-      await api.post('/auth/change-password', { current_password: current, new_password: next })
-      navigate('/dashboard')
+      await api.post('/auth/change-password', { password_actual: current, password_nuevo: next })
+      const token = getToken()
+      const decoded = token ? decodeToken(token) : null
+      const role = (decoded as unknown as { role?: string })?.role
+      navigate(role === 'RESIDENTE' ? '/mi-residencia' : '/dashboard')
     } catch (err: unknown) {
       const e = err as { mensaje?: string }
       setError(e.mensaje ?? 'Error al cambiar la contraseña')

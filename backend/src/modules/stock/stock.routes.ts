@@ -1,7 +1,16 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { stockService } from "./stock.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { prisma } from "../../shared/prisma/client.js";
+
+async function requirePuedeCargarStock(request: FastifyRequest, reply: FastifyReply) {
+  if (request.usuario.role !== "RESIDENTE") return;
+  const user = await prisma.user.findUnique({ where: { id: request.usuario.id } });
+  if (!user?.puede_cargar_stock) {
+    return reply.status(403).send({ error: "Forbidden", mensaje: "No tenés permiso para cargar stock" });
+  }
+}
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -16,7 +25,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get(
     "/categorias",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (_request, reply) => {
       const categorias = await stockService.listarCategorias();
       return reply.status(200).send(categorias);
@@ -89,7 +98,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get(
     "/alimentos",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (_request, reply) => {
       const alimentos = await stockService.listarAlimentos();
       return reply.status(200).send(alimentos);
@@ -98,7 +107,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { id: string } }>(
     "/alimentos/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_RESIDENCIA")] },
     async (request, reply) => {
       try {
         const alimento = await stockService.obtenerAlimento(Number(request.params.id));
@@ -125,7 +134,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/alimentos",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requirePuedeCargarStock],
       schema: {
         body: {
           type: "object",
@@ -133,9 +142,9 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             nombre: { type: "string", minLength: 1 },
             marca: { type: "string" },
-            unidad_base: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad_base: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
             contenido_neto: { type: "number", minimum: 0 },
-            unidad_contenido: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad_contenido: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
             categoria_id: { type: "integer", minimum: 1 },
             calorias: { type: "number", minimum: 0 },
             proteinas: { type: "number", minimum: 0 },
@@ -151,8 +160,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
         const { unidad_base, unidad_contenido, ...rest } = request.body;
         const alimento = await stockService.crearAlimento({
           ...rest,
-          unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
-          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
+          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
         });
         return reply.status(201).send(alimento);
       } catch (err) {
@@ -164,7 +173,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   // POST /alimentos/:id/imagen — subir imagen del alimento (multipart, guarda en disco)
   app.post<{ Params: { id: string } }>(
     "/alimentos/:id/imagen",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_RESIDENCIA")] },
     async (request, reply) => {
       try {
         const file = await request.file();
@@ -203,9 +212,9 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             nombre: { type: "string", minLength: 1 },
             marca: { type: "string" },
-            unidad_base: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad_base: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
             contenido_neto: { type: "number", minimum: 0 },
-            unidad_contenido: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad_contenido: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
             categoria_id: { type: "integer", minimum: 1 },
             calorias: { type: "number", minimum: 0 },
             proteinas: { type: "number", minimum: 0 },
@@ -221,8 +230,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
         const { unidad_base, unidad_contenido, ...rest } = request.body;
         const alimento = await stockService.actualizarAlimento(Number(request.params.id), {
           ...rest,
-          ...(unidad_base ? { unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
-          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          ...(unidad_base ? { unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
+          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
         });
         return reply.status(200).send(alimento);
       } catch (err) {
@@ -248,7 +257,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/stock",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (request, reply) => {
       const stock = await stockService.listarStock(Number(request.params.residencia_id));
       return reply.status(200).send(stock);
@@ -288,7 +297,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             alimento_id: { type: "integer", minimum: 1 },
             cantidad: { type: "number", minimum: 0 },
-            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
             fecha_vencimiento: { type: "string", format: "date" },
             stock_minimo: { type: "number", minimum: 0 },
           },
@@ -303,7 +312,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           {
             ...rest,
             residencia_id: Number(request.params.residencia_id),
-            unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
+            unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
             ...(fecha_vencimiento ? { fecha_vencimiento: new Date(fecha_vencimiento) } : {}),
           },
           request.usuario?.id
@@ -327,7 +336,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           type: "object",
           properties: {
             cantidad: { type: "number", minimum: 0 },
-            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES", "PAQUETES"] },
+            unidad: { type: "string", enum: ["KG", "GR", "LITROS", "ML", "UNIDADES"] },
             fecha_vencimiento: { type: "string", format: "date" },
             stock_minimo: { type: "number", minimum: 0 },
           },
@@ -340,7 +349,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
         const { unidad, fecha_vencimiento, ...rest } = request.body;
         const stock = await stockService.actualizarStock(Number(request.params.id), {
           ...rest,
-          ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
           ...(fecha_vencimiento ? { fecha_vencimiento: new Date(fecha_vencimiento) } : {}),
         });
         return reply.status(200).send(stock);
@@ -413,6 +422,47 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           ...rest,
           stock_id: Number(request.params.stock_id),
           tipo: tipo as "ENTRADA" | "SALIDA" | "AJUSTE",
+        });
+        return reply.status(201).send(movimiento);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
+  // POST /residencias/:residencia_id/stock/:stock_id/entrada — RESIDENTE con permiso puede registrar entradas
+  app.post<{
+    Params: { residencia_id: string; stock_id: string };
+    Body: { cantidad: number; motivo?: string };
+  }>(
+    "/residencias/:residencia_id/stock/:stock_id/entrada",
+    {
+      preHandler: [authMiddleware, requireRoles("RESIDENTE"), requirePuedeCargarStock],
+      schema: {
+        body: {
+          type: "object",
+          required: ["cantidad"],
+          properties: {
+            cantidad: { type: "number", minimum: 0.01 },
+            motivo: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const stock_id = Number(request.params.stock_id);
+        const stock = await stockService.obtenerStock(stock_id);
+        if (stock.residencia_id !== Number(request.params.residencia_id)) {
+          return reply.status(403).send({ error: "Forbidden", mensaje: "Este stock no pertenece a tu residencia" });
+        }
+        const movimiento = await stockService.registrarMovimiento({
+          stock_id,
+          tipo: "ENTRADA",
+          cantidad: request.body.cantidad,
+          user_id: request.usuario.id,
+          motivo: request.body.motivo,
         });
         return reply.status(201).send(movimiento);
       } catch (err) {

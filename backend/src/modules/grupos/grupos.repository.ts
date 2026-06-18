@@ -2,9 +2,12 @@ import { prisma } from "../../shared/prisma/client.js";
 import type { GrupoCocina, GrupoIntegrante } from "@prisma/client";
 
 export const gruposRepository = {
-  findAllByResidencia(residencia_id: number): Promise<GrupoCocina[]> {
+  findAllByResidencia(residencia_id: number) {
     return prisma.grupoCocina.findMany({
       where: { residencia_id, activo: true },
+      include: {
+        _count: { select: { integrantes: { where: { fecha_egreso: null } } } },
+      },
       orderBy: { nombre: "asc" },
     });
   },
@@ -25,9 +28,12 @@ export const gruposRepository = {
     return prisma.grupoCocina.update({ where: { id }, data: { activo: false } });
   },
 
-  findIntegrantes(grupo_id: number): Promise<GrupoIntegrante[]> {
+  findIntegrantes(grupo_id: number) {
     return prisma.grupoIntegrante.findMany({
       where: { grupo_id, fecha_egreso: null },
+      include: {
+        residente: { select: { id: true, nombre: true, apellido: true } },
+      },
       orderBy: { fecha_ingreso: "asc" },
     });
   },
@@ -36,6 +42,13 @@ export const gruposRepository = {
     return prisma.grupoIntegrante.findFirst({
       where: { grupo_id, residente_id, fecha_egreso: null },
     });
+  },
+
+  findIntegranteEnCualquierGrupo(residente_id: number): Promise<(GrupoIntegrante & { grupo: { id: number; nombre: string } }) | null> {
+    return prisma.grupoIntegrante.findFirst({
+      where: { residente_id, fecha_egreso: null, grupo: { activo: true } },
+      include: { grupo: { select: { id: true, nombre: true } } },
+    }) as Promise<(GrupoIntegrante & { grupo: { id: number; nombre: string } }) | null>;
   },
 
   agregarIntegrante(grupo_id: number, residente_id: number): Promise<GrupoIntegrante> {
@@ -47,5 +60,25 @@ export const gruposRepository = {
       where: { id },
       data: { fecha_egreso: new Date() },
     });
+  },
+
+  findMenus(grupo_id: number) {
+    return prisma.menuGrupo.findMany({
+      where: { grupo_id },
+      include: { menu: { select: { id: true, nombre: true, dificultad: true, tiempo_min: true, activo: true } } },
+      orderBy: { menu: { nombre: 'asc' } },
+    });
+  },
+
+  findMenuGrupo(grupo_id: number, menu_id: number) {
+    return prisma.menuGrupo.findUnique({ where: { menu_id_grupo_id: { menu_id, grupo_id } } });
+  },
+
+  agregarMenu(grupo_id: number, menu_id: number) {
+    return prisma.menuGrupo.create({ data: { grupo_id, menu_id } });
+  },
+
+  quitarMenu(grupo_id: number, menu_id: number) {
+    return prisma.menuGrupo.delete({ where: { menu_id_grupo_id: { menu_id, grupo_id } } });
   },
 };
