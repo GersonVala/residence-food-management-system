@@ -140,6 +140,7 @@ export default function GruposPage() {
       .finally(() => setLoading(false))
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(loadGrupos, [residenciaId])
 
   function loadIntegrantes(grupoId: number) {

@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { AlimentoPicker, type AlimentoPickerItem } from '@/components/ui/AlimentoPicker'
 import {
   BookOpen, Clock, Trash2, Copy, Users, ChevronRight, Search,
-  Video, Pencil, Check, X, ImagePlus, ExternalLink, ChefHat, Plus
+  Video, Pencil, ImagePlus, ExternalLink, ChefHat, Plus
 } from 'lucide-react'
 
 type Dificultad = 'FACIL' | 'MEDIO' | 'DIFICIL'
@@ -561,6 +561,7 @@ export default function MenusPage() {
       loadBiblioteca(),
       api.get<AlimentoBasico[]>('/alimentos').then(setAlimentos),
     ]).finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [residenciaId])
 
   function handleMenuUpdate(updated: Partial<Menu> & { id: number }) {

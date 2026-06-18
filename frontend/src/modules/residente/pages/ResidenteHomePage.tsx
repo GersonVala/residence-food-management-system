@@ -113,11 +113,6 @@ export default function ResidenteHomePage() {
     .sort((a, b) => (a.fecha! > b.fecha! ? 1 : -1))
     .slice(0, 3)
 
-  const turnosPendientes = misTurnos.filter(t => {
-    const miaSel = (t.selecciones ?? []).find(s => s.residente.id === residente?.id)
-    return !miaSel || miaSel.estado === 'REVERTIDO'
-  })
-
   async function confirmarSeleccion(turno_id: number) {
     if (!residente || !selMenuId) return
     setSaving(true)
