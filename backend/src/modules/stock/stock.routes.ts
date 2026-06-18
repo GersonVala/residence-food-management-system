@@ -5,6 +5,7 @@ import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
 import { prisma } from "../../shared/prisma/client.js";
 
 async function requirePuedeCargarStock(request: FastifyRequest, reply: FastifyReply) {
+  if (request.usuario.role !== "RESIDENTE") return;
   const user = await prisma.user.findUnique({ where: { id: request.usuario.id } });
   if (!user?.puede_cargar_stock) {
     return reply.status(403).send({ error: "Forbidden", mensaje: "No tenés permiso para cargar stock" });

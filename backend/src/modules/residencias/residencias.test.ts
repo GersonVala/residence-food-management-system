@@ -199,6 +199,7 @@ describe("GET /residencias/:id", () => {
         universidad: "UBA",
         carrera: "Ingeniería",
         ciudad_origen: "Rosario",
+        provincia_origen: "Santa Fe",
         fecha_ingreso: new Date(),
       },
     });

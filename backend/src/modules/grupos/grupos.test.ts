@@ -56,6 +56,7 @@ async function crearResidente(residencia_id: number, dni = "12345678") {
       universidad: "UBA",
       carrera: "Ingeniería",
       ciudad_origen: "Córdoba",
+      provincia_origen: "Córdoba",
       fecha_ingreso: new Date("2024-03-01"),
     },
   });

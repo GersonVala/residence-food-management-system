@@ -63,6 +63,7 @@ async function crearResidente(residencia_id: number) {
       universidad: "UBA",
       carrera: "Ingeniería",
       ciudad_origen: "Córdoba",
+      provincia_origen: "Córdoba",
       fecha_ingreso: new Date("2024-03-01"),
     },
   });
@@ -164,7 +165,7 @@ describe("POST /residencias/:residencia_id/turnos", () => {
     const res = await supertest(app.server)
       .post(`/residencias/${residencia.id}/turnos`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "ALMUERZO" });
+      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "ALMUERZO", tipo: "ROTATIVO" });
 
     expect(res.status).toBe(201);
     expect(res.body.franja).toBe("ALMUERZO");
@@ -180,12 +181,12 @@ describe("POST /residencias/:residencia_id/turnos", () => {
     await supertest(app.server)
       .post(`/residencias/${residencia.id}/turnos`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "ALMUERZO" });
+      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "ALMUERZO", tipo: "ROTATIVO" });
 
     const res = await supertest(app.server)
       .post(`/residencias/${residencia.id}/turnos`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "ALMUERZO" });
+      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "ALMUERZO", tipo: "ROTATIVO" });
 
     expect(res.status).toBe(409);
   });
@@ -200,7 +201,7 @@ describe("POST /residencias/:residencia_id/turnos", () => {
     const res = await supertest(app.server)
       .post(`/residencias/${residencia1.id}/turnos`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "CENA" });
+      .send({ grupo_id: grupo.id, fecha: "2025-06-01", franja: "CENA", tipo: "ROTATIVO" });
 
     expect(res.status).toBe(400);
   });
@@ -212,7 +213,7 @@ describe("POST /residencias/:residencia_id/turnos", () => {
     const res = await supertest(app.server)
       .post("/residencias/999/turnos")
       .set("Authorization", `Bearer ${token}`)
-      .send({ grupo_id: 1, fecha: "2025-06-01", franja: "ALMUERZO" });
+      .send({ grupo_id: 1, fecha: "2025-06-01", franja: "ALMUERZO", tipo: "ROTATIVO" });
 
     expect(res.status).toBe(404);
   });
