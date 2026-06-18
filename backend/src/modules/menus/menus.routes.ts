@@ -264,7 +264,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
         const { unidad, ...rest } = request.body;
         const ingrediente = await menusService.agregarIngrediente(Number(request.params.id), {
           ...rest,
-          unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
+          unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
         });
         return reply.status(201).send(ingrediente);
       } catch (err) {
@@ -301,7 +301,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
           Number(request.params.alimento_id),
           {
             ...rest,
-            ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+            ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
           }
         );
         return reply.status(200).send(ingrediente);

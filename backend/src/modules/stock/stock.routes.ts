@@ -159,8 +159,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
         const { unidad_base, unidad_contenido, ...rest } = request.body;
         const alimento = await stockService.crearAlimento({
           ...rest,
-          unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
-          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
+          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
         });
         return reply.status(201).send(alimento);
       } catch (err) {
@@ -229,8 +229,8 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
         const { unidad_base, unidad_contenido, ...rest } = request.body;
         const alimento = await stockService.actualizarAlimento(Number(request.params.id), {
           ...rest,
-          ...(unidad_base ? { unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
-          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          ...(unidad_base ? { unidad_base: unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
+          ...(unidad_contenido ? { unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
         });
         return reply.status(200).send(alimento);
       } catch (err) {
@@ -311,7 +311,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
           {
             ...rest,
             residencia_id: Number(request.params.residencia_id),
-            unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES",
+            unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
             ...(fecha_vencimiento ? { fecha_vencimiento: new Date(fecha_vencimiento) } : {}),
           },
           request.usuario?.id
@@ -348,7 +348,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
         const { unidad, fecha_vencimiento, ...rest } = request.body;
         const stock = await stockService.actualizarStock(Number(request.params.id), {
           ...rest,
-          ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES" } : {}),
+          ...(unidad ? { unidad: unidad as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" } : {}),
           ...(fecha_vencimiento ? { fecha_vencimiento: new Date(fecha_vencimiento) } : {}),
         });
         return reply.status(200).send(stock);

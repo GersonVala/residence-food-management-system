@@ -78,7 +78,7 @@ export const turnosService = {
 
     const rollback_horas = residencia?.rollback_horas ?? 2;
     const rollback_deadline = new Date(
-      new Date(turno.fecha).getTime() - rollback_horas * 60 * 60 * 1000
+      new Date(turno.fecha!).getTime() - rollback_horas * 60 * 60 * 1000
     );
 
     return turnosRepository.createSeleccion({

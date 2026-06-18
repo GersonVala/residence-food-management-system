@@ -38,7 +38,7 @@ export const menusService = {
 
   async crear(data: CreateMenuInput) {
     const residencia = await prisma.residencia.findUnique({
-      where: { id: data.residencia_id },
+      where: { id: data.residencia_id ?? undefined },
     });
     if (!residencia || !residencia.activo) notFound("Residencia no encontrada");
     return menusRepository.create(data);
