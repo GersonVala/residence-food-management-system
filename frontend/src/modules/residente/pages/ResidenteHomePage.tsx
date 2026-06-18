@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   ChefHat, Users, CalendarDays, UtensilsCrossed, Clock,
-  CheckCircle2, BookOpen, AlertCircle, PartyPopper
+  CheckCircle2, BookOpen, AlertCircle, PartyPopper, ChevronRight
 } from 'lucide-react'
 
 type Franja = 'ALMUERZO' | 'CENA'
@@ -86,6 +87,7 @@ function isTurnoHoy(t: Turno): boolean {
 }
 
 export default function ResidenteHomePage() {
+  const navigate = useNavigate()
   const token = getToken()
   const decoded = token ? decodeToken(token) : null
   const residenciaId = (decoded as unknown as { residencia_id?: number })?.residencia_id
@@ -214,10 +216,14 @@ export default function ResidenteHomePage() {
         <div className="lg:col-span-2 space-y-6">
 
           {/* Mi grupo */}
-          <Card>
+          <Card
+            className={grupo ? 'cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all' : ''}
+            onClick={grupo ? () => navigate('/mi-grupo') : undefined}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <UtensilsCrossed size={15} className="text-purple-500" /> Mi grupo de cocina
+                {grupo && <ChevronRight size={14} className="ml-auto text-gray-400" />}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -254,7 +260,7 @@ export default function ResidenteHomePage() {
                         <BookOpen size={12} /> Menús asignados
                       </p>
                       <div className="space-y-1.5">
-                        {menusGrupo.map(m => (
+                        {menusGrupo.slice(0, 3).map(m => (
                           <div key={m.id} className="flex items-center justify-between text-sm">
                             <span className="text-gray-800">{m.nombre}</span>
                             <div className="flex items-center gap-2">
@@ -263,6 +269,9 @@ export default function ResidenteHomePage() {
                             </div>
                           </div>
                         ))}
+                        {menusGrupo.length > 3 && (
+                          <p className="text-xs text-purple-500 font-medium pt-0.5">+{menusGrupo.length - 3} más · Ver todo →</p>
+                        )}
                       </div>
                     </div>
                   )}

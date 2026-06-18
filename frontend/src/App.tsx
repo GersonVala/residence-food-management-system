@@ -19,6 +19,7 @@ import ResidenteHomePage from '@/modules/residente/pages/ResidenteHomePage'
 import ResidenteMenusPage from '@/modules/residente/pages/ResidenteMenusPage'
 import ResidenteStockPage from '@/modules/residente/pages/ResidenteStockPage'
 import ResidentePerfilPage from '@/modules/residente/pages/ResidentePerfilPage'
+import ResidenteGrupoPage from '@/modules/residente/pages/ResidenteGrupoPage'
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/mis-menus" element={<ResidenteMenusPage />} />
           <Route path="/mi-stock" element={<ResidenteStockPage />} />
           <Route path="/mi-perfil" element={<ResidentePerfilPage />} />
+          <Route path="/mi-grupo" element={<ResidenteGrupoPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

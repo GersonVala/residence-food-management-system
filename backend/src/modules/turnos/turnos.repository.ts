@@ -23,7 +23,16 @@ export const turnosRepository = {
     return prisma.turnoCocina.findMany({
       where: { residencia_id, activo: true },
       orderBy: [{ tipo: "asc" }, { dia_semana: "asc" }, { fecha: "asc" }, { franja: "asc" }],
-      include: { grupo: true },
+      include: {
+        grupo: true,
+        selecciones: {
+          include: {
+            menu: true,
+            residente: true,
+            ajustes: { include: { alimento: true } },
+          },
+        },
+      },
     });
   },
 
