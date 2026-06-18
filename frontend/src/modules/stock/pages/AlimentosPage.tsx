@@ -26,12 +26,12 @@ interface Alimento {
   grasas: number | null
 }
 
-const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES', 'PAQUETES'] as const
+const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES'] as const
 
 const EMPTY_FORM = {
   nombre: '',
   marca: '',
-  unidad_base: 'PAQUETES',
+  unidad_base: 'UNIDADES',
   contenido_neto: '',
   unidad_contenido: 'GR',
   categoria_id: '',
@@ -270,11 +270,11 @@ export default function AlimentosPage() {
             <SelectUnidad id="al-unidad" value={form.unidad_base} onChange={v => setForm(f => ({ ...f, unidad_base: v }))} />
           </div>
 
-          {/* Contenido neto del envase — solo visible si la unidad base es PAQUETES */}
-          {form.unidad_base === 'PAQUETES' && (
+          {/* Contenido neto del envase — solo visible si la unidad base es UNIDADES */}
+          {form.unidad_base === 'UNIDADES' && (
           <div className="space-y-1">
             <Label>Contenido del envase <span className="text-xs text-gray-400">(opcional)</span></Label>
-            <p className="text-xs text-gray-400">Ej: un paquete de Arroz Juan José tiene 500 GR</p>
+            <p className="text-xs text-gray-400">Ej: una unidad de Arroz Juan José tiene 500 GR</p>
             <div className="flex gap-2">
               <Input
                 id="contenido_neto"
@@ -293,7 +293,7 @@ export default function AlimentosPage() {
                   onChange={e => setForm(f => ({ ...f, unidad_contenido: e.target.value }))}
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  {UNIDADES.filter(u => u !== 'PAQUETES').map(u => <option key={u} value={u}>{u}</option>)}
+                  {UNIDADES.filter(u => u !== 'UNIDADES').map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
             </div>

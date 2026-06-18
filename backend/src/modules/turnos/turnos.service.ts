@@ -25,24 +25,22 @@ export const turnosService = {
   },
 
   async crear(data: CreateTurnoInput) {
-    const residencia = await prisma.residencia.findUnique({
-      where: { id: data.residencia_id },
-    });
+    const residencia = await prisma.residencia.findUnique({ where: { id: data.residencia_id } });
     if (!residencia || !residencia.activo) notFound("Residencia no encontrada");
 
     const grupo = await prisma.grupoCocina.findUnique({ where: { id: data.grupo_id } });
     if (!grupo || !grupo.activo) notFound("Grupo no encontrado");
+    if (grupo.residencia_id !== data.residencia_id) badRequest("El grupo no pertenece a esta residencia");
 
-    if (grupo.residencia_id !== data.residencia_id) {
-      badRequest("El grupo no pertenece a esta residencia");
+    if (data.tipo === "FIJO") {
+      if (data.dia_semana === undefined) badRequest("Los turnos fijos requieren dia_semana");
+      const existente = await turnosRepository.findFijoConflicto(data.grupo_id, data.dia_semana, data.franja);
+      if (existente) conflict("Este grupo ya tiene un turno fijo ese día y franja");
+    } else {
+      if (!data.fecha) badRequest("Los turnos rotativos requieren una fecha");
+      const existente = await turnosRepository.findRotativoConflicto(data.grupo_id, data.fecha, data.franja);
+      if (existente) conflict("Ya existe un turno para este grupo en esa fecha y franja");
     }
-
-    const existente = await turnosRepository.findByGrupoFechaFranja(
-      data.grupo_id,
-      data.fecha,
-      data.franja
-    );
-    if (existente) conflict("Ya existe un turno para este grupo en esa fecha y franja");
 
     return turnosRepository.create(data);
   },

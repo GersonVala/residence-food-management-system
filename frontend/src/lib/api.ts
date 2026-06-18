@@ -2,7 +2,8 @@ import { getToken } from '@/modules/auth/auth.utils'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
-  const isBodyless = options.method === 'DELETE' || options.method === 'GET' || !options.method
+  const hasBody = options.body !== undefined
+  const isBodyless = !hasBody
   const res = await fetch(`/api${path}`, {
     ...options,
     headers: {
@@ -43,7 +44,8 @@ export const api = {
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'DELETE', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }),
   upload: <T>(path: string, formData: FormData) => upload<T>(path, formData),
 }
 
@@ -64,6 +66,7 @@ export interface ResidenteBasico {
   carrera: string | null
   activo: boolean
   fecha_ingreso: string
+  fecha_retiro: string | null
 }
 
 export interface VoluntarioBasico {

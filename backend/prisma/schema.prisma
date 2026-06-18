@@ -31,7 +31,6 @@ enum Unidad {
   LITROS
   ML
   UNIDADES
-  PAQUETES
 }
 
 enum TipoMovimiento {
@@ -66,6 +65,8 @@ model User {
   active        Boolean   @default(true)
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
+
+  puede_cargar_stock Boolean   @default(false)
 
   residencia    Residencia?       @relation(fields: [residencia_id], references: [id])
   residente     Residente?
@@ -124,8 +125,11 @@ model Residente {
   telefono       String?
   universidad    String
   carrera        String
-  ciudad_origen  String
-  fecha_ingreso  DateTime
+  ciudad_origen    String
+  provincia_origen String
+  fecha_ingreso    DateTime
+  fecha_retiro   DateTime?
+  motivo_baja    String?
   activo         Boolean  @default(true)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
@@ -168,21 +172,27 @@ model GrupoIntegrante {
   @@map("grupos_integrantes")
 }
 
+enum TipoTurno {
+  FIJO
+  ROTATIVO
+}
+
 model TurnoCocina {
-  id            Int      @id @default(autoincrement())
+  id            Int        @id @default(autoincrement())
   grupo_id      Int
   residencia_id Int
-  fecha         DateTime @db.Date
+  tipo          TipoTurno  @default(ROTATIVO)
+  dia_semana    Int?       // 0=domingo … 6=sábado, solo para FIJO
+  fecha         DateTime?  @db.Date  // solo para ROTATIVO
   franja        Franja
-  activo        Boolean  @default(true)
-  created_at    DateTime @default(now())
+  activo        Boolean    @default(true)
+  created_at    DateTime   @default(now())
 
   grupo         GrupoCocina     @relation(fields: [grupo_id], references: [id])
   residencia    Residencia      @relation(fields: [residencia_id], references: [id])
   movimientos   MovimientoStock[]
   selecciones   SeleccionMenu[]
 
-  @@unique([grupo_id, fecha, franja])
   @@map("turnos_cocina")
 }
 
@@ -265,12 +275,12 @@ model Menu {
   dificultad   Dificultad
   tiempo_min   Int
   personas_base Int       @default(1)
-  residencia_id Int
+  residencia_id Int?
   activo       Boolean    @default(true)
   created_at   DateTime   @default(now())
   updated_at   DateTime   @updatedAt
 
-  residencia   Residencia        @relation(fields: [residencia_id], references: [id])
+  residencia   Residencia?       @relation(fields: [residencia_id], references: [id])
   ingredientes MenuIngrediente[]
   grupos       MenuGrupo[]
   selecciones  SeleccionMenu[]

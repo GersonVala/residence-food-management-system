@@ -43,7 +43,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // POST /residencias/:residencia_id/turnos
   app.post<{
     Params: { residencia_id: string };
-    Body: { grupo_id: number; fecha: string; franja: string };
+    Body: { grupo_id: number; franja: string; tipo: string; dia_semana?: number; fecha?: string };
   }>(
     "/residencias/:residencia_id/turnos",
     {
@@ -51,11 +51,13 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         body: {
           type: "object",
-          required: ["grupo_id", "fecha", "franja"],
+          required: ["grupo_id", "franja", "tipo"],
           properties: {
             grupo_id: { type: "integer", minimum: 1 },
-            fecha: { type: "string", format: "date" },
             franja: { type: "string", enum: ["ALMUERZO", "CENA"] },
+            tipo: { type: "string", enum: ["FIJO", "ROTATIVO"] },
+            dia_semana: { type: "integer", minimum: 0, maximum: 6 },
+            fecha: { type: "string", format: "date" },
           },
           additionalProperties: false,
         },
@@ -63,12 +65,14 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const { grupo_id, fecha, franja } = request.body;
+        const { grupo_id, franja, tipo, dia_semana, fecha } = request.body;
         const turno = await turnosService.crear({
           grupo_id,
           residencia_id: Number(request.params.residencia_id),
-          fecha: new Date(fecha),
           franja: franja as "ALMUERZO" | "CENA",
+          tipo: tipo as "FIJO" | "ROTATIVO",
+          dia_semana,
+          fecha: fecha ? new Date(fecha) : undefined,
         });
         return reply.status(201).send(turno);
       } catch (err) {

@@ -3,7 +3,6 @@ import { residentesRepository, type CreateResidenteData, type UpdateResidenteDat
 import { residenciasRepository } from "../residencias/residencias.repository.js";
 import type { Residente } from "@prisma/client";
 
-const PASSWORD_DEFAULT = "Fundacion2024";
 
 function notFound(): never {
   throw Object.assign(new Error("Residente no encontrado"), {
@@ -33,7 +32,7 @@ export const residentesService = {
 
   async obtener(id: number): Promise<ResidenteDetalle> {
     const residente = await residentesRepository.findById(id);
-    if (!residente || !residente.activo) notFound();
+    if (!residente) notFound();
     return residente;
   },
 
@@ -50,7 +49,7 @@ export const residentesService = {
     const existente = await residentesRepository.findByDni(data.dni);
     if (existente) conflict("Ya existe un residente con ese DNI");
 
-    const password_hash = await bcrypt.hash(PASSWORD_DEFAULT, 10);
+    const password_hash = await bcrypt.hash(data.dni, 10);
     return residentesRepository.create(data, password_hash);
   },
 
@@ -77,8 +76,8 @@ export const residentesService = {
     return residentesRepository.update(id, data);
   },
 
-  async eliminar(id: number): Promise<void> {
+  async eliminar(id: number, motivo_baja: string): Promise<void> {
     await residentesService.obtener(id);
-    await residentesRepository.softDelete(id);
+    await residentesRepository.softDelete(id, motivo_baja);
   },
 };

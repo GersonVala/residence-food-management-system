@@ -7,6 +7,11 @@ interface RequireRoleProps {
   children?: React.ReactNode
 }
 
+function defaultRedirect(role: string): string {
+  if (role === 'RESIDENTE') return '/mi-residencia'
+  return '/dashboard'
+}
+
 export function RequireRole({ roles, redirectTo, children }: RequireRoleProps) {
   const token = getToken()
 
@@ -21,7 +26,7 @@ export function RequireRole({ roles, redirectTo, children }: RequireRoleProps) {
   }
 
   if (!roles.includes(payload.role)) {
-    return <Navigate to={redirectTo ?? '/dashboard'} replace />
+    return <Navigate to={redirectTo ?? defaultRedirect(payload.role)} replace />
   }
 
   return children ? <>{children}</> : <Outlet />

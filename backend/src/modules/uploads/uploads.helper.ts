@@ -7,7 +7,7 @@ import type { MultipartFile } from "@fastify/multipart";
 // Constantes
 // ============================================================
 
-export const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 

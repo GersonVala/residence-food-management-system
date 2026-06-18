@@ -1,5 +1,7 @@
 import { menusRepository, type CreateMenuInput, type UpdateMenuInput, type AddIngredienteInput } from "./menus.repository.js";
 import { prisma } from "../../shared/prisma/client.js";
+import { saveUpload, unlinkSafe } from "../uploads/uploads.helper.js";
+import type { MultipartFile } from "@fastify/multipart";
 
 function notFound(mensaje: string): never {
   throw { statusCode: 404, error: "Not Found", mensaje };
@@ -12,6 +14,20 @@ function conflict(mensaje: string): never {
 export const menusService = {
   async listar(residencia_id: number) {
     return menusRepository.findAll(residencia_id);
+  },
+
+  async listarBiblioteca() {
+    return menusRepository.findBiblioteca();
+  },
+
+  async clonar(id: number, residencia_id: number) {
+    const menu = await menusRepository.findById(id);
+    if (!menu || !menu.activo) notFound("Menú no encontrado");
+    const residencia = await prisma.residencia.findUnique({ where: { id: residencia_id } });
+    if (!residencia || !residencia.activo) notFound("Residencia no encontrada");
+    const clonado = await menusRepository.clone(id, residencia_id);
+    if (!clonado) notFound("Menú no encontrado");
+    return clonado;
   },
 
   async obtener(id: number) {
@@ -75,6 +91,14 @@ export const menusService = {
     if (!existente) notFound("Ingrediente no encontrado en este menú");
 
     await menusRepository.removeIngrediente(menu_id, alimento_id);
+  },
+
+  async subirImagen(id: number, file: MultipartFile) {
+    const menu = await menusRepository.findById(id);
+    if (!menu || !menu.activo) notFound("Menú no encontrado");
+    const url = await saveUpload({ file, subfolder: "menus" });
+    await unlinkSafe(menu.imagen_url);
+    return menusRepository.update(id, { imagen_url: url });
   },
 
   async asignarGrupo(menu_id: number, grupo_id: number) {

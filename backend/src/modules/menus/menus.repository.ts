@@ -9,7 +9,7 @@ export type CreateMenuInput = {
   dificultad: Dificultad;
   tiempo_min: number;
   personas_base: number;
-  residencia_id: number;
+  residencia_id?: number | null;
 };
 
 export type UpdateMenuInput = Partial<Omit<CreateMenuInput, "residencia_id">>;
@@ -100,5 +100,48 @@ export const menusRepository = {
 
   findAlimento(id: number) {
     return prisma.alimento.findUnique({ where: { id } });
+  },
+
+  findBiblioteca() {
+    return prisma.menu.findMany({
+      where: { residencia_id: null, activo: true },
+      orderBy: { nombre: "asc" },
+      include: {
+        ingredientes: { include: { alimento: true } },
+        grupos: { include: { grupo: true } },
+      },
+    });
+  },
+
+  async clone(id: number, residencia_id: number) {
+    const original = await prisma.menu.findUnique({
+      where: { id },
+      include: { ingredientes: true },
+    });
+    if (!original) return null;
+    return prisma.menu.create({
+      data: {
+        nombre: original.nombre,
+        descripcion: original.descripcion,
+        imagen_url: original.imagen_url,
+        video_url: original.video_url,
+        dificultad: original.dificultad,
+        tiempo_min: original.tiempo_min,
+        personas_base: original.personas_base,
+        residencia_id,
+        ingredientes: {
+          create: original.ingredientes.map((i) => ({
+            alimento_id: i.alimento_id,
+            cantidad_base: i.cantidad_base,
+            cantidad_por_persona: i.cantidad_por_persona,
+            unidad: i.unidad,
+          })),
+        },
+      },
+      include: {
+        ingredientes: { include: { alimento: true } },
+        grupos: { include: { grupo: true } },
+      },
+    });
   },
 };

@@ -179,7 +179,7 @@ function ResidentesTab({ residencia }: { residencia: ResidenciaDetalle }) {
       <table className="w-full text-sm">
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
-            {['Nombre', 'DNI', 'Universidad', 'Carrera', 'Ingreso', ''].map(h => (
+            {['Nombre', 'DNI', 'Universidad', 'Carrera', 'Ingreso', ...(esHistorico ? ['Retiro'] : []), ''].map(h => (
               <th key={h} className="text-left px-4 py-3 font-medium text-gray-600">{h}</th>
             ))}
           </tr>
@@ -198,6 +198,11 @@ function ResidentesTab({ residencia }: { residencia: ResidenciaDetalle }) {
               <td className="px-4 py-3 text-gray-500 text-xs">
                 {new Date(r.fecha_ingreso).toLocaleDateString('es-AR')}
               </td>
+              {esHistorico && (
+                <td className="px-4 py-3 text-gray-500 text-xs">
+                  {r.fecha_retiro ? new Date(r.fecha_retiro).toLocaleDateString('es-AR') : '—'}
+                </td>
+              )}
               <td className="px-4 py-3">
                 <span className="text-xs text-purple-500 font-medium">Ver →</span>
               </td>
@@ -585,7 +590,7 @@ function MenuCard({ menu, alimentos, onDelete, onIngredienteAdded, onIngrediente
   const [savingIng, setSavingIng] = useState(false)
   const [ingError, setIngError] = useState('')
 
-  const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES', 'PAQUETES']
+  const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES']
 
   function calcCantidad(ing: Ingrediente) {
     if (menu.personas_base === 0) return ing.cantidad_base
@@ -846,7 +851,7 @@ function MenusTab({ residenciaId }: { residenciaId: number }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES', 'PAQUETES']
+  const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES']
 
   function load() {
     setLoading(true)
@@ -1240,7 +1245,7 @@ function StockTab({ residenciaId }: { residenciaId: number }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES', 'PAQUETES']
+  const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES']
 
   function load() {
     setLoading(true)

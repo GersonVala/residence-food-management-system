@@ -2,14 +2,26 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { removeToken, decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { cn } from '@/lib/utils'
 import {
-  Home, Building2, Users, Package, LogOut
+  Home, Building2, Users, Package, LogOut, BookOpen, BarChart2, UtensilsCrossed, CalendarDays, History, ChefHat, ShoppingBasket, UserCircle
 } from 'lucide-react'
 
-const navItems = [
+const adminNavItems = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
   { to: '/residencias', icon: Building2, label: 'Residencias', roles: ['ADMIN_GLOBAL'] },
   { to: '/residentes', icon: Users, label: 'Residentes' },
-  { to: '/alimentos', icon: Package, label: 'Alimentos' },
+  { to: '/grupos', icon: UtensilsCrossed, label: 'Grupos de Cocina', roles: ['ADMIN_RESIDENCIA'] },
+  { to: '/turnos', icon: CalendarDays, label: 'Turnos', roles: ['ADMIN_RESIDENCIA'] },
+  { to: '/historial', icon: History, label: 'Historial', roles: ['ADMIN_RESIDENCIA'] },
+  { to: '/menus', icon: BookOpen, label: 'Menús', roles: ['ADMIN_RESIDENCIA'] },
+  { to: '/stock', icon: BarChart2, label: 'Stock', roles: ['ADMIN_RESIDENCIA'] },
+  { to: '/alimentos', icon: Package, label: 'Alimentos', roles: ['ADMIN_RESIDENCIA'] },
+]
+
+const residenteNavItems = [
+  { to: '/mi-residencia', icon: ChefHat, label: 'Mi residencia' },
+  { to: '/mis-menus', icon: BookOpen, label: 'Menús' },
+  { to: '/mi-stock', icon: ShoppingBasket, label: 'Stock' },
+  { to: '/mi-perfil', icon: UserCircle, label: 'Mi perfil' },
 ]
 
 export function Sidebar() {
@@ -23,6 +35,7 @@ export function Sidebar() {
     navigate('/login')
   }
 
+  const navItems = role === 'RESIDENTE' ? residenteNavItems : adminNavItems
   const visibleItems = navItems.filter(item => !item.roles || item.roles.includes(role))
 
   return (

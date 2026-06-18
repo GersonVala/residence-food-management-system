@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { setToken, isAuthenticated } from '@/modules/auth/auth.utils'
+import { setToken, isAuthenticated, getToken, decodeToken } from '@/modules/auth/auth.utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +13,12 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (isAuthenticated()) return <Navigate to="/dashboard" replace />
+  if (isAuthenticated()) {
+    const token = getToken()
+    const decoded = token ? decodeToken(token) : null
+    const role = (decoded as unknown as { role?: string })?.role
+    return <Navigate to={role === 'RESIDENTE' ? '/mi-residencia' : '/dashboard'} replace />
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,10 +26,12 @@ export default function LoginPage() {
     setLoading(true)
     try {
       type LoginResponse = { token: string; primer_login: boolean; usuario: { id: number; email: string; role: string; residencia_id: number | null } }
-      const { token, primer_login } = await api.post<LoginResponse>('/auth/login', { email, password })
+      const { token, primer_login, usuario } = await api.post<LoginResponse>('/auth/login', { email, password })
       setToken(token)
       if (primer_login) {
         navigate('/change-password', { replace: true })
+      } else if (usuario.role === 'RESIDENTE') {
+        navigate('/mi-residencia', { replace: true })
       } else {
         navigate('/dashboard', { replace: true })
       }

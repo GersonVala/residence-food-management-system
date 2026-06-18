@@ -5,7 +5,7 @@
  * entre la misma unidad.
  */
 
-export type Unidad = "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | "PAQUETES";
+export type Unidad = "KG" | "GR" | "LITROS" | "ML" | "UNIDADES";
 
 /** Factores de conversión a la unidad base de cada grupo */
 const FACTORES_A_BASE: Record<string, number> = {
@@ -19,7 +19,6 @@ const FACTORES_A_BASE: Record<string, number> = {
 
   // Discretas (base: ellas mismas, factor 1)
   UNIDADES: 1,
-  PAQUETES: 1,
 };
 
 /** Grupos de unidades compatibles entre sí */
@@ -27,7 +26,6 @@ const GRUPOS_COMPATIBLES: Record<string, Unidad[]> = {
   masa: ["KG", "GR"],
   volumen: ["LITROS", "ML"],
   discreta_unidades: ["UNIDADES"],
-  discreta_paquetes: ["PAQUETES"],
 };
 
 function getGrupo(unidad: Unidad): string | null {
