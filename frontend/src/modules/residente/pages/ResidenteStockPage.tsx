@@ -76,6 +76,7 @@ export default function ResidenteStockPage() {
   const [entradaStockId, setEntradaStockId] = useState<number | null>(null)
   const [entradaCantidad, setEntradaCantidad] = useState('')
   const [entradaMotivo, setEntradaMotivo] = useState('')
+  const [confirmandoEntrada, setConfirmandoEntrada] = useState(false)
   const [savingEntrada, setSavingEntrada] = useState(false)
   const [feedbackEntrada, setFeedbackEntrada] = useState<Feedback | null>(null)
 
@@ -103,14 +104,20 @@ export default function ResidenteStockPage() {
     setEntradaStockId(stockId)
     setEntradaCantidad('')
     setEntradaMotivo('')
+    setConfirmandoEntrada(false)
     setFeedbackEntrada(null)
   }
 
-  async function confirmarEntrada(e: React.FormEvent) {
+  function pedirConfirmacionEntrada(e: React.FormEvent) {
     e.preventDefault()
-    if (!entradaStockId || !residenciaId) return
     const cantidad = parseFloat(entradaCantidad)
     if (!cantidad || cantidad <= 0) return
+    setConfirmandoEntrada(true)
+  }
+
+  async function ejecutarEntrada() {
+    if (!entradaStockId || !residenciaId) return
+    const cantidad = parseFloat(entradaCantidad)
     setSavingEntrada(true)
     setFeedbackEntrada(null)
     try {
@@ -119,13 +126,14 @@ export default function ResidenteStockPage() {
         motivo: entradaMotivo || undefined,
       })
       setFeedbackEntrada({ tipo: 'ok', msg: 'Entrada registrada correctamente.' })
-      // Refrescar stock
       const actualizado = await api.get<StockItem[]>(`/residencias/${residenciaId}/stock`)
       setStock(actualizado)
       setEntradaStockId(null)
+      setConfirmandoEntrada(false)
     } catch (err: unknown) {
       const e = err as { mensaje?: string }
       setFeedbackEntrada({ tipo: 'error', msg: e.mensaje ?? 'Error al registrar la entrada.' })
+      setConfirmandoEntrada(false)
     } finally {
       setSavingEntrada(false)
     }
@@ -267,8 +275,10 @@ export default function ResidenteStockPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Registrar entrada</h2>
-              <button onClick={() => setEntradaStockId(null)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="font-semibold text-gray-900">
+                {confirmandoEntrada ? 'Confirmar entrada' : 'Registrar entrada'}
+              </h2>
+              <button onClick={() => { setEntradaStockId(null); setConfirmandoEntrada(false) }} className="text-gray-400 hover:text-gray-600">
                 <X size={18} />
               </button>
             </div>
@@ -276,44 +286,77 @@ export default function ResidenteStockPage() {
               <span className="font-medium">{itemEntrada.alimento.nombre}</span>
               {itemEntrada.alimento.marca && ` · ${itemEntrada.alimento.marca}`}
             </p>
-            <form onSubmit={confirmarEntrada} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-gray-600">Cantidad ({itemEntrada.unidad.toLowerCase()})</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="0"
-                  value={entradaCantidad}
-                  onChange={e => setEntradaCantidad(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-gray-600">Motivo <span className="text-gray-400">(opcional)</span></Label>
-                <Input
-                  type="text"
-                  placeholder="Ej: compra semanal"
-                  value={entradaMotivo}
-                  onChange={e => setEntradaMotivo(e.target.value)}
-                />
-              </div>
-              {feedbackEntrada && (
-                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${feedbackEntrada.tipo === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                  {feedbackEntrada.tipo === 'ok' ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
-                  {feedbackEntrada.msg}
+
+            {!confirmandoEntrada ? (
+              <form onSubmit={pedirConfirmacionEntrada} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-gray-600">Cantidad ({itemEntrada.unidad.toLowerCase()})</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0"
+                    value={entradaCantidad}
+                    onChange={e => setEntradaCantidad(e.target.value)}
+                    required
+                    autoFocus
+                  />
                 </div>
-              )}
-              <div className="flex gap-2 pt-1">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setEntradaStockId(null)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" className="flex-1" disabled={savingEntrada}>
-                  {savingEntrada ? 'Guardando...' : 'Confirmar'}
-                </Button>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-gray-600">Motivo <span className="text-gray-400">(opcional)</span></Label>
+                  <Input
+                    type="text"
+                    placeholder="Ej: compra semanal"
+                    value={entradaMotivo}
+                    onChange={e => setEntradaMotivo(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setEntradaStockId(null)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Siguiente
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Revisá los datos</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Cantidad</span>
+                    <span className="font-semibold text-gray-900">{formatCantidad(parseFloat(entradaCantidad), itemEntrada.unidad)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Motivo</span>
+                    <span className="text-gray-700">{entradaMotivo || <span className="text-gray-400 italic">Sin motivo</span>}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-gray-200 pt-3">
+                    <span className="text-gray-500">Stock actual</span>
+                    <span className="text-gray-700">{formatCantidad(itemEntrada.cantidad, itemEntrada.unidad)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Stock después</span>
+                    <span className="font-semibold text-green-700">{formatCantidad(itemEntrada.cantidad + parseFloat(entradaCantidad), itemEntrada.unidad)}</span>
+                  </div>
+                </div>
+                {feedbackEntrada && (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${feedbackEntrada.tipo === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {feedbackEntrada.tipo === 'ok' ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
+                    {feedbackEntrada.msg}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setConfirmandoEntrada(false)}>
+                    Editar
+                  </Button>
+                  <Button type="button" className="flex-1" onClick={ejecutarEntrada} disabled={savingEntrada}>
+                    {savingEntrada ? 'Guardando...' : 'Confirmar'}
+                  </Button>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}
