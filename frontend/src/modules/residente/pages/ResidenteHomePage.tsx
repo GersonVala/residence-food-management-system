@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
   ChefHat, Users, CalendarDays, UtensilsCrossed, Clock,
-  CheckCircle2, BookOpen, AlertCircle
+  CheckCircle2, BookOpen, AlertCircle, PartyPopper
 } from 'lucide-react'
 
 type Franja = 'ALMUERZO' | 'CENA'
@@ -101,6 +101,7 @@ export default function ResidenteHomePage() {
   const [selPersonas, setSelPersonas] = useState(4)
   const [selTurnoId, setSelTurnoId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [confirmando, setConfirmando] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
 
   useEffect(() => {
@@ -136,6 +137,22 @@ export default function ResidenteHomePage() {
   const turnosProximos = misTurnos.filter(t => !isTurnoHoy(t) && t.tipo === 'ROTATIVO' && t.fecha)
     .sort((a, b) => (a.fecha! > b.fecha! ? 1 : -1))
     .slice(0, 3)
+
+  async function termineDecocinar(seleccion_id: number) {
+    setConfirmando(seleccion_id)
+    setFeedback(null)
+    try {
+      await api.patch(`/selecciones/${seleccion_id}/confirmar`)
+      setFeedback({ tipo: 'ok', msg: '¡Listo! La cocción quedó registrada y se descontó el stock.' })
+      const ts = await api.get<Turno[]>(`/residencias/${residenciaId}/turnos`)
+      setTurnos(ts)
+    } catch (err: unknown) {
+      const e = err as { mensaje?: string }
+      setFeedback({ tipo: 'error', msg: e.mensaje ?? 'Error al confirmar la cocción.' })
+    } finally {
+      setConfirmando(null)
+    }
+  }
 
   async function confirmarSeleccion(turno_id: number) {
     if (!residente || !selMenuId) return
@@ -277,10 +294,18 @@ export default function ResidenteHomePage() {
                         <p className="font-semibold text-gray-900 text-sm">{grupo?.nombre}</p>
                         <p className="text-xs text-gray-500">{getTurnoLabel(t)} · <span className={`font-medium ${t.franja === 'ALMUERZO' ? 'text-yellow-600' : 'text-indigo-600'}`}>{t.franja === 'ALMUERZO' ? 'Almuerzo' : 'Cena'}</span></p>
                       </div>
-                      {miaSel && miaSel.estado !== 'REVERTIDO' ? (
+                      {miaSel?.estado === 'CONFIRMADO' ? (
                         <div className="flex items-center gap-1.5 text-green-600 text-xs font-medium bg-green-50 px-2.5 py-1 rounded-full">
-                          <CheckCircle2 size={13} /> Menú elegido
+                          <CheckCircle2 size={13} /> Cocinado
                         </div>
+                      ) : miaSel?.estado === 'PENDIENTE' ? (
+                        <button
+                          onClick={() => termineDecocinar(miaSel.id)}
+                          disabled={confirmando === miaSel.id}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                          {confirmando === miaSel.id ? 'Guardando...' : '✓ Ya terminé'}
+                        </button>
                       ) : (
                         <button
                           onClick={() => { setSelTurnoId(abierto ? null : t.id); setSelMenuId(null) }}
@@ -292,10 +317,19 @@ export default function ResidenteHomePage() {
                     </div>
 
                     {miaSel && miaSel.estado !== 'REVERTIDO' && (
-                      <div className="border-t border-orange-100 bg-orange-50 px-4 py-3 text-xs text-gray-600">
-                        <span className="font-medium">{miaSel.menu.nombre}</span>
-                        {' · '}{miaSel.personas} personas
-                        {' · '}<span className={`font-semibold px-1.5 py-0.5 rounded-full ${DIFICULTAD_COLOR[miaSel.menu.dificultad]}`}>{miaSel.menu.dificultad}</span>
+                      <div className={`border-t px-4 py-3 text-xs text-gray-600 ${miaSel.estado === 'CONFIRMADO' ? 'border-green-100 bg-green-50' : 'border-orange-100 bg-orange-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{miaSel.menu.nombre}</span>
+                            {' · '}{miaSel.personas} personas
+                            {' · '}<span className={`font-semibold px-1.5 py-0.5 rounded-full ${DIFICULTAD_COLOR[miaSel.menu.dificultad]}`}>{miaSel.menu.dificultad}</span>
+                          </div>
+                          {miaSel.estado === 'CONFIRMADO' && (
+                            <span className="flex items-center gap-1 text-green-600 font-medium">
+                              <PartyPopper size={12} /> Stock descontado
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
 

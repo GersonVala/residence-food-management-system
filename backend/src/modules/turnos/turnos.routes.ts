@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { turnosService } from "./turnos.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { prisma } from "../../shared/prisma/client.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -135,10 +136,19 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // PATCH /selecciones/:id/confirmar
   app.patch<{ Params: { id: string } }>(
     "/selecciones/:id/confirmar",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
     async (request, reply) => {
       try {
-        const seleccion = await turnosService.confirmarSeleccion(Number(request.params.id));
+        const seleccion_id = Number(request.params.id);
+        // RESIDENTE solo puede confirmar su propia selección
+        if (request.usuario.role === "RESIDENTE") {
+          const sel = await turnosService.obtenerSeleccion(seleccion_id);
+          const residente = await prisma.residente.findUnique({ where: { user_id: request.usuario.id } });
+          if (!sel || !residente || sel.residente_id !== residente.id) {
+            return reply.status(403).send({ error: "Forbidden", mensaje: "Solo podés confirmar tus propias selecciones" });
+          }
+        }
+        const seleccion = await turnosService.confirmarSeleccion(seleccion_id);
         return reply.status(200).send(seleccion);
       } catch (err) {
         return handleError(err, reply);

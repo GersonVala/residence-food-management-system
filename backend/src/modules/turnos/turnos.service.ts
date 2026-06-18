@@ -90,6 +90,10 @@ export const turnosService = {
     });
   },
 
+  async obtenerSeleccion(seleccion_id: number) {
+    return turnosRepository.findSeleccion(seleccion_id);
+  },
+
   async confirmarSeleccion(seleccion_id: number) {
     const seleccion = await turnosRepository.findSeleccion(seleccion_id);
     if (!seleccion) notFound("Selección no encontrada");
