@@ -143,26 +143,6 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
     "/selecciones/:id/confirmar",
     {
       preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")],
-      schema: {
-        body: {
-          type: "object",
-          properties: {
-            ajustes: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["alimento_id", "cantidad"],
-                properties: {
-                  alimento_id: { type: "integer", minimum: 1 },
-                  cantidad: { type: "number", minimum: 0 },
-                },
-                additionalProperties: false,
-              },
-            },
-          },
-          additionalProperties: false,
-        },
-      },
     },
     async (request, reply) => {
       try {
