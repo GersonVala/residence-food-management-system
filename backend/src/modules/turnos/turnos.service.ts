@@ -55,7 +55,8 @@ export const turnosService = {
     turno_id: number,
     residente_id: number,
     menu_id: number,
-    personas: number
+    personas: number,
+    nota?: string
   ) {
     const turno = await turnosRepository.findById(turno_id);
     if (!turno || !turno.activo) notFound("Turno no encontrado");
@@ -87,10 +88,18 @@ export const turnosService = {
       residente_id,
       personas,
       rollback_deadline,
+      ...(nota ? { nota } : {}),
     });
   },
 
-  async confirmarSeleccion(seleccion_id: number) {
+  async obtenerSeleccion(seleccion_id: number) {
+    return turnosRepository.findSeleccion(seleccion_id);
+  },
+
+  async confirmarSeleccion(
+    seleccion_id: number,
+    ajustes_manuales?: { alimento_id: number; cantidad: number }[]
+  ) {
     const seleccion = await turnosRepository.findSeleccion(seleccion_id);
     if (!seleccion) notFound("Selección no encontrada");
     if (seleccion.estado !== "PENDIENTE") {
@@ -100,58 +109,125 @@ export const turnosService = {
     const ingredientes = seleccion.menu.ingredientes;
     const residencia_id = seleccion.turno.residencia_id;
 
-    // Verificar stock suficiente para todos los ingredientes antes de tocar nada
-    for (const ing of ingredientes) {
-      const cantidad_necesaria = ing.cantidad_base + ing.cantidad_por_persona * seleccion.personas;
-      const stock = await prisma.stock.findFirst({
-        where: { alimento_id: ing.alimento_id, residencia_id, activo: true },
-      });
-      if (!stock || stock.cantidad < cantidad_necesaria) {
-        badRequest(
-          `Stock insuficiente para el ingrediente con id ${ing.alimento_id}. Disponible: ${stock?.cantidad ?? 0}, requerido: ${cantidad_necesaria}`
-        );
-      }
-    }
-
     return prisma.$transaction(async (tx) => {
       for (const ing of ingredientes) {
         const cantidad_calculada = ing.cantidad_base + ing.cantidad_por_persona * seleccion.personas;
 
-        const stock = await tx.stock.findFirst({
+        // Si hay ajuste manual para este ingrediente, usarlo; si no, usar el calculado
+        const ajuste = ajustes_manuales?.find(a => a.alimento_id === ing.alimento_id);
+        const cantidad_a_descontar = ajuste != null ? ajuste.cantidad : cantidad_calculada;
+
+        if (cantidad_a_descontar <= 0) continue;
+
+        // Sumar stock disponible a través de todos los lotes activos
+        const lotes = await tx.stock.findMany({
           where: { alimento_id: ing.alimento_id, residencia_id, activo: true },
-        });
-        if (!stock) badRequest(`Stock no encontrado para el ingrediente ${ing.alimento_id}`);
-
-        await tx.stock.update({
-          where: { id: stock.id },
-          data: { cantidad: { decrement: cantidad_calculada } },
+          orderBy: { fecha_vencimiento: "asc" }, // primero los que vencen antes
         });
 
-        await tx.movimientoStock.create({
-          data: {
-            stock_id: stock.id,
-            tipo: "SALIDA",
-            cantidad: cantidad_calculada,
-            turno_id: seleccion.turno_id,
-            motivo: `Confirmación selección #${seleccion_id}`,
-          },
-        });
+        const disponible = lotes.reduce((acc, l) => acc + l.cantidad, 0);
+        const cantidad_real = Math.min(disponible, cantidad_a_descontar);
+
+        if (cantidad_real <= 0) {
+          // No hay stock — registrar ajuste con 0 sin tocar stock
+          await tx.seleccionAjuste.create({
+            data: {
+              seleccion_id,
+              alimento_id: ing.alimento_id,
+              cantidad_calculada,
+              cantidad_real: 0,
+              unidad: ing.unidad,
+            },
+          });
+          continue;
+        }
+
+        // Descontar de lotes en orden (primero el que vence antes)
+        let restante = cantidad_real;
+        for (const lote of lotes) {
+          if (restante <= 0) break;
+          const descuento = Math.min(lote.cantidad, restante);
+          await tx.stock.update({
+            where: { id: lote.id },
+            data: { cantidad: { decrement: descuento } },
+          });
+          await tx.movimientoStock.create({
+            data: {
+              stock_id: lote.id,
+              tipo: "SALIDA",
+              cantidad: descuento,
+              turno_id: seleccion.turno_id,
+              motivo: `Cocción selección #${seleccion_id}`,
+            },
+          });
+          restante -= descuento;
+        }
 
         await tx.seleccionAjuste.create({
           data: {
             seleccion_id,
             alimento_id: ing.alimento_id,
             cantidad_calculada,
-            cantidad_real: cantidad_calculada,
+            cantidad_real,
             unidad: ing.unidad,
           },
         });
       }
 
+      // Procesar ingredientes extra (no están en la receta original)
+      if (ajustes_manuales) {
+        const ids_receta = new Set(ingredientes.map(i => i.alimento_id));
+        const extras = ajustes_manuales.filter(a => !ids_receta.has(a.alimento_id) && a.cantidad > 0);
+
+        for (const extra of extras) {
+          const alimento = await prisma.alimento.findUnique({ where: { id: extra.alimento_id } });
+          if (!alimento) continue;
+
+          const lotes = await tx.stock.findMany({
+            where: { alimento_id: extra.alimento_id, residencia_id, activo: true },
+            orderBy: { fecha_vencimiento: "asc" },
+          });
+          const disponible = lotes.reduce((acc, l) => acc + l.cantidad, 0);
+          const cantidad_real = Math.min(disponible, extra.cantidad);
+
+          let restante = cantidad_real;
+          for (const lote of lotes) {
+            if (restante <= 0) break;
+            const descuento = Math.min(lote.cantidad, restante);
+            await tx.stock.update({
+              where: { id: lote.id },
+              data: { cantidad: { decrement: descuento } },
+            });
+            await tx.movimientoStock.create({
+              data: {
+                stock_id: lote.id,
+                tipo: "SALIDA",
+                cantidad: descuento,
+                turno_id: seleccion.turno_id,
+                motivo: `Cocción selección #${seleccion_id} (extra)`,
+              },
+            });
+            restante -= descuento;
+          }
+
+          await tx.seleccionAjuste.create({
+            data: {
+              seleccion_id,
+              alimento_id: extra.alimento_id,
+              cantidad_calculada: 0,
+              cantidad_real,
+              unidad: alimento.unidad_base,
+            },
+          });
+        }
+      }
+
       return tx.seleccionMenu.update({
         where: { id: seleccion_id },
         data: { estado: "CONFIRMADO" },
-        include: { ajustes: true },
+        include: {
+          ajustes: { include: { alimento: { select: { nombre: true } } } },
+        },
       });
     });
   },

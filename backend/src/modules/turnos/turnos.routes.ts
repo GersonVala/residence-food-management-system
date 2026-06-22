@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { turnosService } from "./turnos.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { prisma } from "../../shared/prisma/client.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -98,7 +99,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // POST /turnos/:id/selecciones
   app.post<{
     Params: { id: string };
-    Body: { residente_id: number; menu_id: number; personas: number };
+    Body: { residente_id: number; menu_id: number; personas: number; nota?: string };
   }>(
     "/turnos/:id/selecciones",
     {
@@ -111,6 +112,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
             residente_id: { type: "integer", minimum: 1 },
             menu_id: { type: "integer", minimum: 1 },
             personas: { type: "integer", minimum: 1 },
+            nota: { type: "string" },
           },
           additionalProperties: false,
         },
@@ -118,12 +120,13 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const { residente_id, menu_id, personas } = request.body;
+        const { residente_id, menu_id, personas, nota } = request.body;
         const seleccion = await turnosService.seleccionarMenu(
           Number(request.params.id),
           residente_id,
           menu_id,
-          personas
+          personas,
+          nota
         );
         return reply.status(201).send(seleccion);
       } catch (err) {
@@ -133,12 +136,25 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // PATCH /selecciones/:id/confirmar
-  app.patch<{ Params: { id: string } }>(
+  app.patch<{
+    Params: { id: string };
+    Body?: { ajustes?: { alimento_id: number; cantidad: number }[] };
+  }>(
     "/selecciones/:id/confirmar",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    {
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")],
+    },
     async (request, reply) => {
       try {
-        const seleccion = await turnosService.confirmarSeleccion(Number(request.params.id));
+        const seleccion_id = Number(request.params.id);
+        if (request.usuario.role === "RESIDENTE") {
+          const sel = await turnosService.obtenerSeleccion(seleccion_id);
+          const residente = await prisma.residente.findUnique({ where: { user_id: request.usuario.id } });
+          if (!sel || !residente || sel.residente_id !== residente.id) {
+            return reply.status(403).send({ error: "Forbidden", mensaje: "Solo podés confirmar tus propias selecciones" });
+          }
+        }
+        const seleccion = await turnosService.confirmarSeleccion(seleccion_id, request.body?.ajustes);
         return reply.status(200).send(seleccion);
       } catch (err) {
         return handleError(err, reply);

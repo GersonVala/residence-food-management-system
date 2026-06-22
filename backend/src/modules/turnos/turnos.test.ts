@@ -372,7 +372,7 @@ describe("PATCH /selecciones/:id/confirmar", () => {
     expect(stockActualizado?.cantidad).toBe(97);
   });
 
-  it("retorna 400 si stock insuficiente", async () => {
+  it("confirma con stock insuficiente descontando parcialmente", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
     const residencia = await crearResidencia();
@@ -395,7 +395,11 @@ describe("PATCH /selecciones/:id/confirmar", () => {
       .patch(`/selecciones/${sel.body.id}/confirmar`)
       .set("Authorization", `Bearer ${token}`);
 
-    expect(res.status).toBe(400);
+    // Confirma igual, descuenta lo que hay (1kg de 3kg necesarios)
+    expect(res.status).toBe(200);
+    expect(res.body.estado).toBe("CONFIRMADO");
+    const stockTras = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(stockTras?.cantidad).toBe(0);
   });
 
   it("retorna 400 si la selección ya está confirmada", async () => {

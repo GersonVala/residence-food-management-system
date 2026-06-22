@@ -16,6 +16,7 @@ export type CreateSeleccionInput = {
   residente_id: number;
   personas: number;
   rollback_deadline: Date;
+  nota?: string;
 };
 
 export const turnosRepository = {
@@ -23,7 +24,15 @@ export const turnosRepository = {
     return prisma.turnoCocina.findMany({
       where: { residencia_id, activo: true },
       orderBy: [{ tipo: "asc" }, { dia_semana: "asc" }, { fecha: "asc" }, { franja: "asc" }],
-      include: { grupo: true },
+      include: {
+        grupo: true,
+        selecciones: {
+          include: {
+            menu: { include: { ingredientes: { include: { alimento: true } } } },
+            residente: true,
+          },
+        },
+      },
     });
   },
 

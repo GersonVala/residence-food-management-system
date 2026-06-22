@@ -289,7 +289,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/stock",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requirePuedeCargarStock],
       schema: {
         body: {
           type: "object",
@@ -365,6 +365,38 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         await stockService.eliminarStock(Number(request.params.id));
+        return reply.status(204).send();
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
+
+  app.patch<{
+    Params: { residencia_id: string; alimento_id: string };
+    Body: { stock_minimo: number | null };
+  }>(
+    "/residencias/:residencia_id/stock/alimento/:alimento_id/minimo",
+    {
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      schema: {
+        body: {
+          type: "object",
+          required: ["stock_minimo"],
+          properties: {
+            stock_minimo: { type: ["number", "null"], minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        await stockService.actualizarMinimo(
+          Number(request.params.alimento_id),
+          Number(request.params.residencia_id),
+          request.body.stock_minimo,
+        );
         return reply.status(204).send();
       } catch (err) {
         return handleError(err, reply);

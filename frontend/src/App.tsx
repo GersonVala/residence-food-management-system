@@ -13,6 +13,7 @@ import AlimentoDetailPage from '@/modules/stock/pages/AlimentoDetailPage'
 import StockPage from '@/modules/stock/pages/StockPage'
 import MenusPage from '@/modules/menus/pages/MenusPage'
 import GruposPage from '@/modules/grupos/pages/GruposPage'
+import GrupoDetailPage from '@/modules/grupos/pages/GrupoDetailPage'
 import TurnosPage from '@/modules/turnos/pages/TurnosPage'
 import HistorialPage from '@/modules/historial/pages/HistorialPage'
 import ResidenteHomePage from '@/modules/residente/pages/ResidenteHomePage'
@@ -44,6 +45,7 @@ export default function App() {
         </Route>
         <Route element={<RequireRole roles={['ADMIN_RESIDENCIA']} />}>
           <Route path="/grupos" element={<GruposPage />} />
+          <Route path="/grupos/:id" element={<GrupoDetailPage />} />
           <Route path="/turnos" element={<TurnosPage />} />
           <Route path="/historial" element={<HistorialPage />} />
           <Route path="/menus" element={<MenusPage />} />
