@@ -36,7 +36,6 @@ interface ResidenteMe {
   residencia: { id: number }
 }
 
-type Feedback = { tipo: 'ok' | 'error'; msg: string }
 
 function formatCantidad(cantidad: number, unidad: string): string {
   const u = unidad.toLowerCase()
@@ -70,7 +69,6 @@ export default function ResidenteStockPage() {
   const residenciaId = (decoded as unknown as { residencia_id?: number })?.residencia_id
 
   const [stock, setStock] = useState<StockItem[]>([])
-  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [puedeCargar, setPuedeCargar] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
@@ -96,10 +94,7 @@ export default function ResidenteStockPage() {
       setStock(s)
       setPuedeCargar(me.user.puede_cargar_stock)
       if (me.user.puede_cargar_stock) {
-        Promise.all([
-          api.get<Categoria[]>('/categorias'),
-          api.get<Alimento[]>('/alimentos'),
-        ]).then(([c, a]) => { setCategorias(c); setAlimentos(a) }).catch(() => {})
+        api.get<Alimento[]>('/alimentos').then(setAlimentos).catch(() => {})
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [residenciaId])
