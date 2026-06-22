@@ -125,6 +125,13 @@ export const stockRepository = {
     return prisma.stock.update({ where: { id }, data: { activo: false } });
   },
 
+  updateMinimoByAlimento(alimento_id: number, residencia_id: number, stock_minimo: number | null) {
+    return prisma.stock.updateMany({
+      where: { alimento_id, residencia_id, activo: true },
+      data: { stock_minimo },
+    });
+  },
+
   // ── Movimientos ──────────────────────────────────────────────
 
   findMovimientos(stock_id: number) {

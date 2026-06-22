@@ -16,6 +16,7 @@ export type CreateSeleccionInput = {
   residente_id: number;
   personas: number;
   rollback_deadline: Date;
+  nota?: string;
 };
 
 export const turnosRepository = {
@@ -27,9 +28,8 @@ export const turnosRepository = {
         grupo: true,
         selecciones: {
           include: {
-            menu: true,
+            menu: { include: { ingredientes: { include: { alimento: true } } } },
             residente: true,
-            ajustes: { include: { alimento: true } },
           },
         },
       },

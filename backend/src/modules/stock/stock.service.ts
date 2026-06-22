@@ -134,6 +134,17 @@ export const stockService = {
           motivo: "Entrada inicial",
         },
       });
+      if (data.stock_minimo != null) {
+        await tx.stock.updateMany({
+          where: {
+            alimento_id: data.alimento_id,
+            residencia_id: data.residencia_id,
+            activo: true,
+            id: { not: s.id },
+          },
+          data: { stock_minimo: data.stock_minimo },
+        });
+      }
       return s;
     });
 
@@ -144,6 +155,14 @@ export const stockService = {
     const stock = await stockRepository.findStockById(id);
     if (!stock || !stock.activo) notFound("Stock no encontrado");
     return stockRepository.updateStock(id, data);
+  },
+
+  async actualizarMinimo(alimento_id: number, residencia_id: number, stock_minimo: number | null) {
+    const residencia = await prisma.residencia.findUnique({ where: { id: residencia_id } });
+    if (!residencia || !residencia.activo) notFound("Residencia no encontrada");
+    const alimento = await stockRepository.findAlimentoById(alimento_id);
+    if (!alimento) notFound("Alimento no encontrado");
+    await stockRepository.updateMinimoByAlimento(alimento_id, residencia_id, stock_minimo);
   },
 
   async eliminarStock(id: number) {

@@ -321,6 +321,7 @@ model SeleccionMenu {
   menu_id          Int
   residente_id     Int
   personas         Int
+  nota             String?
   estado           EstadoSeleccion @default(PENDIENTE)
   rollback_deadline DateTime
   created_at       DateTime        @default(now())
