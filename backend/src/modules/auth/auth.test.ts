@@ -44,9 +44,22 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // Limpiar en orden para respetar FK: primero dependientes, luego usuarios
+  await prisma.seleccionAjuste.deleteMany();
+  await prisma.seleccionMenu.deleteMany();
+  await prisma.movimientoStock.deleteMany();
+  await prisma.stock.deleteMany();
+  await prisma.grupoIntegrante.deleteMany();
+  await prisma.menuGrupo.deleteMany();
+  await prisma.menuIngrediente.deleteMany();
+  await prisma.menu.deleteMany();
+  await prisma.turnoCocina.deleteMany();
+  await prisma.grupoCocina.deleteMany();
+  await prisma.residente.deleteMany();
   await prisma.auditoriaLog.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.alimento.deleteMany();
+  await prisma.categoria.deleteMany();
+  await prisma.residencia.deleteMany();
 });
 
 // ---------------------------------------------------------------------------

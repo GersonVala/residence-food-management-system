@@ -2,7 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { decodeToken, getToken } from '@/modules/auth/auth.utils'
-import { ChevronLeft, ChevronRight, Users, CalendarDays, UtensilsCrossed, Clock, ExternalLink, BookOpen, History } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Modal } from '@/components/ui/modal'
+import { ChevronLeft, ChevronRight, Users, CalendarDays, UtensilsCrossed, Clock, ExternalLink, BookOpen, History, Plus, Trash2 } from 'lucide-react'
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const DIAS_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -44,6 +47,12 @@ interface Seleccion {
     tipo: string
     grupo: { id: number; nombre: string }
   }
+}
+
+// "2025-06-22" → Date en hora local, evita el desfase UTC
+function parseFechaLocal(fechaStr: string): Date {
+  const [y, m, d] = fechaStr.substring(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d)
 }
 
 function getLunes(ref: Date): Date {
@@ -96,7 +105,7 @@ function ChipTooltip({ turno, dia, grupo, selecciones, color }: ChipTooltipProps
     if (s.turno.grupo.id !== turno.grupo.id) return false
     if (s.turno.franja !== turno.franja) return false
     if (turno.tipo === 'ROTATIVO' && turno.fecha) {
-      return s.turno.fecha ? isSameDay(new Date(s.turno.fecha), dia) : false
+      return s.turno.fecha ? isSameDay(parseFechaLocal(s.turno.fecha), dia) : false
     }
     // FIJO: coincide si el día de semana es el mismo (aproximación por dia visible)
     return s.turno.dia_semana === dia.getDay()
@@ -194,6 +203,18 @@ export default function TurnosPage() {
   const [loading, setLoading] = useState(true)
   const [semana, setSemana] = useState(() => getLunes(new Date()))
 
+  // Modal crear turno
+  const [createOpen, setCreateOpen] = useState(false)
+  const [form, setForm] = useState({
+    grupo_id: '',
+    franja: 'ALMUERZO' as 'ALMUERZO' | 'CENA',
+    tipo: 'FIJO' as 'FIJO' | 'ROTATIVO',
+    dia_semana: '1',
+    fecha: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [createError, setCreateError] = useState('')
+
   const grupoColorMap = useMemo(() => {
     const map = new Map<number, number>()
     grupos.forEach((g, i) => map.set(g.id, i % GRUPO_COLORS.length))
@@ -202,6 +223,45 @@ export default function TurnosPage() {
 
   function getColor(grupoId: number) {
     return GRUPO_COLORS[grupoColorMap.get(grupoId) ?? 0]
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!residenciaId || !form.grupo_id) return
+    if (form.tipo === 'ROTATIVO' && !form.fecha) {
+      setCreateError('Seleccioná una fecha para el turno rotativo.')
+      return
+    }
+    if (form.tipo === 'ROTATIVO' && form.fecha < new Date().toISOString().slice(0, 10)) {
+      setCreateError('No podés crear un turno en una fecha pasada.')
+      return
+    }
+    setSaving(true)
+    setCreateError('')
+    try {
+      const body: Record<string, unknown> = {
+        grupo_id: Number(form.grupo_id),
+        franja: form.franja,
+        tipo: form.tipo,
+      }
+      if (form.tipo === 'FIJO') body.dia_semana = Number(form.dia_semana)
+      else body.fecha = form.fecha
+      await api.post(`/residencias/${residenciaId}/turnos`, body)
+      setCreateOpen(false)
+      setForm({ grupo_id: '', franja: 'ALMUERZO', tipo: 'FIJO', dia_semana: '1', fecha: '' })
+      load()
+    } catch (err: unknown) {
+      const e = err as { mensaje?: string }
+      setCreateError(e.mensaje ?? 'Error al crear el turno.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleEliminar(turnoId: number) {
+    if (!confirm('¿Eliminar este turno?')) return
+    await api.delete(`/turnos/${turnoId}`)
+    load()
   }
 
   function load() {
@@ -236,7 +296,7 @@ export default function TurnosPage() {
     return turnos.filter(t => {
       if (t.franja !== franja) return false
       if (t.tipo === 'FIJO') return t.dia_semana === diaSemana
-      if (t.tipo === 'ROTATIVO' && t.fecha) return isSameDay(new Date(t.fecha), dia)
+      if (t.tipo === 'ROTATIVO' && t.fecha) return isSameDay(parseFechaLocal(t.fecha), dia)
       return false
     })
   }
@@ -246,7 +306,7 @@ export default function TurnosPage() {
       if (t.grupo.id !== grupoId) return false
       if (t.tipo === 'FIJO') return true
       if (t.tipo === 'ROTATIVO' && t.fecha) {
-        return diasSemana.some(d => isSameDay(d, new Date(t.fecha!)))
+        return diasSemana.some(d => isSameDay(d, parseFechaLocal(t.fecha!)))
       }
       return false
     })
@@ -254,7 +314,7 @@ export default function TurnosPage() {
 
   function diaLabel(t: Turno): string {
     if (t.tipo === 'FIJO' && t.dia_semana !== null) return DIAS[t.dia_semana]
-    if (t.tipo === 'ROTATIVO' && t.fecha) return formatFechaLarga(new Date(t.fecha))
+    if (t.tipo === 'ROTATIVO' && t.fecha) return formatFechaLarga(parseFechaLocal(t.fecha))
     return '—'
   }
 
@@ -269,9 +329,14 @@ export default function TurnosPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Turnos de Cocina</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{grupos.length} grupos · {turnos.length} turnos activos</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Turnos de Cocina</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{grupos.length} grupos · {turnos.length} turnos activos</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="flex items-center gap-2">
+          <Plus size={16} /> Nuevo turno
+        </Button>
       </div>
 
       {/* Navegación de semana */}
@@ -351,13 +416,21 @@ export default function TurnosPage() {
 
                             {/* Chip */}
                             <div className={`rounded-lg px-2 py-1.5 text-xs border cursor-default ${color.bg} ${color.border} ${color.text} relative`}>
-                              <button
-                                onClick={() => navigate('/grupos', { state: { grupoId: t.grupo.id } })}
-                                className="font-semibold truncate leading-tight text-left w-full flex items-center gap-1 hover:underline"
-                              >
-                                {t.grupo.nombre}
-                                <ExternalLink size={8} className="opacity-0 group-hover/chip:opacity-50 shrink-0" />
-                              </button>
+                              <div className="flex items-start justify-between gap-1">
+                                <button
+                                  onClick={() => navigate('/grupos', { state: { grupoId: t.grupo.id } })}
+                                  className="font-semibold truncate leading-tight text-left flex items-center gap-1 hover:underline flex-1 min-w-0"
+                                >
+                                  {t.grupo.nombre}
+                                  <ExternalLink size={8} className="opacity-0 group-hover/chip:opacity-50 shrink-0" />
+                                </button>
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleEliminar(t.id) }}
+                                  className="opacity-0 group-hover/chip:opacity-60 hover:!opacity-100 text-red-500 shrink-0 transition-opacity"
+                                >
+                                  <Trash2 size={10} />
+                                </button>
+                              </div>
                               {grupoData.integrantes.length > 0 && (
                                 <p className="text-[10px] opacity-60 mt-0.5 leading-none">
                                   {grupoData.integrantes.length} integrante{grupoData.integrantes.length !== 1 ? 's' : ''}
@@ -488,6 +561,88 @@ export default function TurnosPage() {
           )}
         </>
       )}
+
+      {/* Modal crear turno */}
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateError('') }} title="Nuevo turno">
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="t-grupo">Grupo</Label>
+            <select
+              id="t-grupo"
+              value={form.grupo_id}
+              onChange={e => setForm(f => ({ ...f, grupo_id: e.target.value }))}
+              required
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Seleccioná un grupo</option>
+              {grupos.map(g => (
+                <option key={g.id} value={g.id}>{g.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="t-franja">Franja</Label>
+            <select
+              id="t-franja"
+              value={form.franja}
+              onChange={e => setForm(f => ({ ...f, franja: e.target.value as typeof f.franja }))}
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="ALMUERZO">☀️ Almuerzo</option>
+              <option value="CENA">🌙 Cena</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="t-tipo">Tipo</Label>
+            <select
+              id="t-tipo"
+              value={form.tipo}
+              onChange={e => setForm(f => ({ ...f, tipo: e.target.value as typeof f.tipo, dia_semana: '1', fecha: '' }))}
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="FIJO">Fijo — se repite cada semana</option>
+              <option value="ROTATIVO">Rotativo — fecha específica</option>
+            </select>
+          </div>
+
+          {form.tipo === 'FIJO' ? (
+            <div className="space-y-1">
+              <Label htmlFor="t-dia">Día de la semana</Label>
+              <select
+                id="t-dia"
+                value={form.dia_semana}
+                onChange={e => setForm(f => ({ ...f, dia_semana: e.target.value }))}
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {DIAS.map((d, i) => (
+                  <option key={i} value={i}>{d}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="t-fecha">Fecha</Label>
+              <input
+                id="t-fecha"
+                type="date"
+                value={form.fecha}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
+                required
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          )}
+
+          {createError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{createError}</p>}
+          <div className="flex gap-2 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => { setCreateOpen(false); setCreateError('') }}>Cancelar</Button>
+            <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Creando...' : 'Crear turno'}</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

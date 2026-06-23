@@ -293,7 +293,7 @@ export default function AlimentosPage() {
                   onChange={e => setForm(f => ({ ...f, unidad_contenido: e.target.value }))}
                   className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  {UNIDADES.filter(u => u !== 'UNIDADES').map(u => <option key={u} value={u}>{u}</option>)}
+                  {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
             </div>

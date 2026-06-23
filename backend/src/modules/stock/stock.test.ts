@@ -42,14 +42,17 @@ beforeAll(async () => { await app.ready(); });
 afterAll(async () => { await app.close(); await prisma.$disconnect(); });
 
 beforeEach(async () => {
+  await prisma.seleccionAjuste.deleteMany();
+  await prisma.seleccionMenu.deleteMany();
   await prisma.movimientoStock.deleteMany();
   await prisma.stock.deleteMany();
   await prisma.menuGrupo.deleteMany();
   await prisma.menuIngrediente.deleteMany();
   await prisma.menu.deleteMany();
+  await prisma.turnoCocina.deleteMany();
+  await prisma.grupoCocina.deleteMany();
   await prisma.alimento.deleteMany();
   await prisma.categoria.deleteMany();
-  await prisma.grupoCocina.deleteMany();
   await prisma.residencia.deleteMany();
 });
 

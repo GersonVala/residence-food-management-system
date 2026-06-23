@@ -10,6 +10,15 @@ import { Modal } from '@/components/ui/modal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Building2, MapPin, Trash2, Pencil, ExternalLink } from 'lucide-react'
 
+const PROVINCIAS_ARGENTINA = [
+  'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
+  'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa',
+  'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro',
+  'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe',
+  'Santiago del Estero', 'Tierra del Fuego', 'Tucumán',
+  'Ciudad Autónoma de Buenos Aires',
+]
+
 interface Residencia {
   id: number
   nombre: string
@@ -43,7 +52,6 @@ const CREATE_FIELDS = [
   { id: 'nombre', label: 'Nombre', type: 'text' },
   { id: 'direccion', label: 'Dirección', type: 'text' },
   { id: 'ciudad', label: 'Ciudad', type: 'text' },
-  { id: 'provincia', label: 'Provincia', type: 'text' },
   { id: 'capacidad_max', label: 'Capacidad máxima', type: 'number' },
   { id: 'rollback_horas', label: 'Horas de rollback', type: 'number' },
   { id: 'imagen_url', label: 'URL de imagen (opcional)', type: 'text' },
@@ -224,6 +232,23 @@ export default function ResidenciasPage() {
                 onChange={e => setCreateForm(f => ({ ...f, [id]: e.target.value }))}
                 required={id !== 'imagen_url'}
               />
+              {id === 'ciudad' && (
+                <div className="space-y-1 mt-3">
+                  <Label htmlFor="create-provincia">Provincia</Label>
+                  <select
+                    id="create-provincia"
+                    value={createForm.provincia}
+                    onChange={e => setCreateForm(f => ({ ...f, provincia: e.target.value }))}
+                    required
+                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Seleccioná una provincia</option>
+                    {PROVINCIAS_ARGENTINA.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           ))}
           {createError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{createError}</p>}
@@ -248,6 +273,23 @@ export default function ResidenciasPage() {
                   onChange={e => setEditForm(f => f ? { ...f, [id]: e.target.value } : f)}
                   required={id !== 'imagen_url' && id !== 'direccion'}
                 />
+                {id === 'ciudad' && (
+                  <div className="space-y-1 mt-3">
+                    <Label htmlFor="edit-provincia">Provincia</Label>
+                    <select
+                      id="edit-provincia"
+                      value={editForm.provincia}
+                      onChange={e => setEditForm(f => f ? { ...f, provincia: e.target.value } : f)}
+                      required
+                      className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Seleccioná una provincia</option>
+                      {PROVINCIAS_ARGENTINA.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             ))}
             {editError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{editError}</p>}

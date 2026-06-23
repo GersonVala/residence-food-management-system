@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react'
 import { api } from '@/lib/api'
 import { decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Package, AlertTriangle, Search, Plus, X, ChevronRight, Layers } from 'lucide-react'
+import { Package, AlertTriangle, Search, Plus, X, ChevronRight, Layers, History } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,17 @@ interface StockItem {
 interface ResidenteMe {
   user: { puede_cargar_stock: boolean }
   residencia: { id: number }
+}
+
+interface Movimiento {
+  id: number
+  cantidad: number
+  motivo: string | null
+  created_at: string
+  stock: {
+    unidad: string
+    alimento: { id: number; nombre: string; marca: string | null; unidad_base: string }
+  }
 }
 
 
@@ -76,6 +87,8 @@ export default function ResidenteStockPage() {
 
   const [expandedAlimentoId, setExpandedAlimentoId] = useState<number | null>(null)
   const [alimentos, setAlimentos] = useState<Alimento[]>([])
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([])
+  const [loadingMovimientos, setLoadingMovimientos] = useState(false)
 
   // Modal de carga (nuevo lote)
   const [modalOpen, setModalOpen] = useState(false)
@@ -95,6 +108,11 @@ export default function ResidenteStockPage() {
       setPuedeCargar(me.user.puede_cargar_stock)
       if (me.user.puede_cargar_stock) {
         api.get<Alimento[]>('/alimentos').then(setAlimentos).catch(() => {})
+        setLoadingMovimientos(true)
+        api.get<Movimiento[]>('/me/movimientos')
+          .then(setMovimientos)
+          .catch(() => {})
+          .finally(() => setLoadingMovimientos(false))
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [residenciaId])
@@ -102,6 +120,7 @@ export default function ResidenteStockPage() {
   function recargar() {
     if (!residenciaId) return
     api.get<StockItem[]>(`/residencias/${residenciaId}/stock`).then(setStock).catch(() => {})
+    api.get<Movimiento[]>('/me/movimientos').then(setMovimientos).catch(() => {})
   }
 
   const stockAgrupado = useMemo(() => {
@@ -342,6 +361,57 @@ export default function ResidenteStockPage() {
           {categoriasStock.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
+
+      {/* Historial de mis cargas */}
+      {puedeCargar && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <History size={15} className="text-purple-500" />
+            Mis cargas de stock
+          </h2>
+          {loadingMovimientos ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
+            </div>
+          ) : movimientos.length === 0 ? (
+            <EmptyState icon={History} title="Sin cargas" description="Todavía no registraste ninguna entrada de stock." />
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Alimento</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cantidad</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Motivo</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {movimientos.map(m => (
+                    <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{m.stock.alimento.nombre}</p>
+                        {m.stock.alimento.marca && <p className="text-xs text-gray-400">{m.stock.alimento.marca}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-green-700">
+                        +{formatCantidad(m.cantidad, m.stock.unidad)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">
+                        {m.motivo ?? <span className="text-gray-300 italic">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                        {new Date(m.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <br />
+                        <span>{new Date(m.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabla agrupada */}
       {agrupadoFiltrado.length === 0 ? (

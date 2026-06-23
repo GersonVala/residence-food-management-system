@@ -2,12 +2,14 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { removeToken, decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { cn } from '@/lib/utils'
 import {
-  Home, Building2, Users, Package, LogOut, BookOpen, BarChart2, UtensilsCrossed, CalendarDays, History, ChefHat, ShoppingBasket, UserCircle
+  Home, Building2, Users, Package, LogOut, BookOpen, BarChart2, UtensilsCrossed, CalendarDays, History, ChefHat, ShoppingBasket, UserCircle, UserCog, CircleUserRound
 } from 'lucide-react'
 
 const adminNavItems = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
+  { to: '/analytics', icon: BarChart2, label: 'Analytics', roles: ['ADMIN_GLOBAL'] },
   { to: '/residencias', icon: Building2, label: 'Residencias', roles: ['ADMIN_GLOBAL'] },
+  { to: '/voluntarios', icon: UserCog, label: 'Voluntarios y Admins', roles: ['ADMIN_GLOBAL'] },
   { to: '/residentes', icon: Users, label: 'Residentes' },
   { to: '/grupos', icon: UtensilsCrossed, label: 'Grupos de Cocina', roles: ['ADMIN_RESIDENCIA'] },
   { to: '/turnos', icon: CalendarDays, label: 'Turnos', roles: ['ADMIN_RESIDENCIA'] },
@@ -15,12 +17,14 @@ const adminNavItems = [
   { to: '/menus', icon: BookOpen, label: 'Menús', roles: ['ADMIN_RESIDENCIA'] },
   { to: '/stock', icon: BarChart2, label: 'Stock', roles: ['ADMIN_RESIDENCIA'] },
   { to: '/alimentos', icon: Package, label: 'Alimentos', roles: ['ADMIN_RESIDENCIA'] },
+  { to: '/mi-perfil-admin', icon: CircleUserRound, label: 'Mi perfil' },
 ]
 
 const residenteNavItems = [
   { to: '/mi-residencia', icon: ChefHat, label: 'Mi residencia' },
   { to: '/mis-menus', icon: BookOpen, label: 'Menús' },
   { to: '/mi-stock', icon: ShoppingBasket, label: 'Stock' },
+  { to: '/mi-historial', icon: History, label: 'Mi historial' },
   { to: '/mi-perfil', icon: UserCircle, label: 'Mi perfil' },
 ]
 

@@ -462,6 +462,27 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
     }
   );
 
+  // GET /me/movimientos — historial de entradas de stock del residente autenticado
+  app.get(
+    "/me/movimientos",
+    { preHandler: [authMiddleware, requireRoles("RESIDENTE")] },
+    async (request, reply) => {
+      const movimientos = await prisma.movimientoStock.findMany({
+        where: { user_id: request.usuario.id, tipo: "ENTRADA" },
+        include: {
+          stock: {
+            include: {
+              alimento: { select: { id: true, nombre: true, marca: true, unidad_base: true } },
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
+        take: 100,
+      });
+      return reply.status(200).send(movimientos);
+    }
+  );
+
   // POST /residencias/:residencia_id/stock/:stock_id/entrada — RESIDENTE con permiso puede registrar entradas
   app.post<{
     Params: { residencia_id: string; stock_id: string };

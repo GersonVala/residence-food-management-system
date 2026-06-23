@@ -16,10 +16,14 @@ import GruposPage from '@/modules/grupos/pages/GruposPage'
 import GrupoDetailPage from '@/modules/grupos/pages/GrupoDetailPage'
 import TurnosPage from '@/modules/turnos/pages/TurnosPage'
 import HistorialPage from '@/modules/historial/pages/HistorialPage'
+import VoluntariosPage from '@/modules/usuarios/pages/VoluntariosPage'
+import AdminPerfilPage from '@/modules/admin/pages/AdminPerfilPage'
 import ResidenteHomePage from '@/modules/residente/pages/ResidenteHomePage'
 import ResidenteMenusPage from '@/modules/residente/pages/ResidenteMenusPage'
 import ResidenteStockPage from '@/modules/residente/pages/ResidenteStockPage'
 import ResidentePerfilPage from '@/modules/residente/pages/ResidentePerfilPage'
+import ResidenteHistorialPage from '@/modules/residente/pages/ResidenteHistorialPage'
+import AnalyticsPage from '@/modules/analytics/pages/AnalyticsPage'
 
 export default function App() {
   return (
@@ -30,10 +34,13 @@ export default function App() {
         {/* Admin routes */}
         <Route element={<RequireRole roles={['ADMIN_GLOBAL', 'ADMIN_RESIDENCIA']} />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/mi-perfil-admin" element={<AdminPerfilPage />} />
         </Route>
         <Route element={<RequireRole roles={['ADMIN_GLOBAL']} />}>
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/residencias" element={<ResidenciasPage />} />
           <Route path="/residencias/:id" element={<ResidenciaDetailPage />} />
+          <Route path="/voluntarios" element={<VoluntariosPage />} />
         </Route>
         <Route element={<RequireRole roles={['ADMIN_GLOBAL', 'ADMIN_RESIDENCIA']} />}>
           <Route path="/residentes" element={<ResidentesPage />} />
@@ -56,6 +63,7 @@ export default function App() {
           <Route path="/mi-residencia" element={<ResidenteHomePage />} />
           <Route path="/mis-menus" element={<ResidenteMenusPage />} />
           <Route path="/mi-stock" element={<ResidenteStockPage />} />
+          <Route path="/mi-historial" element={<ResidenteHistorialPage />} />
           <Route path="/mi-perfil" element={<ResidentePerfilPage />} />
         </Route>
       </Route>
