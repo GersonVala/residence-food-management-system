@@ -138,6 +138,8 @@ export default function ResidenteHomePage() {
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null)
   const [avisandoFaltante, setAvisandoFaltante] = useState(false)
   const [avisandoModificada, setAvisandoModificada] = useState(false)
+  // Ajustes pendientes por seleccion_id — se guardan al confirmar selección y se envían al confirmar cocción
+  const [ajustesPendientes, setAjustesPendientes] = useState<Record<number, { alimento_id: number; cantidad: number }[]>>({})
 
   useEffect(() => {
     if (!residenciaId) return
@@ -182,6 +184,7 @@ export default function ResidenteHomePage() {
     setFeedback(null)
     try {
       await api.patch(`/selecciones/${seleccion_id}/confirmar`, ajustes?.length ? { ajustes } : {})
+      setAjustesPendientes(prev => { const n = { ...prev }; delete n[seleccion_id]; return n })
       setFeedback({ tipo: 'ok', msg: '¡Listo! La cocción quedó registrada y se descontó el stock.' })
       const [ts, st] = await Promise.all([
         api.get<Turno[]>(`/residencias/${residenciaId}/turnos`),
@@ -238,7 +241,20 @@ export default function ResidenteHomePage() {
       }
       if (selNota.trim()) body.nota = selNota.trim()
 
-      await api.post(`/turnos/${turno_id}/selecciones`, body)
+      const seleccionCreada = await api.post<{ id: number }>(`/turnos/${turno_id}/selecciones`, body)
+
+      // Guardar ajustes asociados a esta selección para enviarlos al confirmar cocción
+      const ajustesBase = Object.entries(ajustesIngredientes)
+        .map(([id, v]) => ({ alimento_id: Number(id), cantidad: Number(v) }))
+        .filter(a => !isNaN(a.cantidad) && a.cantidad >= 0)
+      const ajustesExtra = extrasIngredientes
+        .map(e => ({ alimento_id: e.alimento_id, cantidad: Number(e.cantidad) }))
+        .filter(a => !isNaN(a.cantidad) && a.cantidad > 0)
+      const todos = [...ajustesBase, ...ajustesExtra]
+      if (todos.length > 0) {
+        setAjustesPendientes(prev => ({ ...prev, [seleccionCreada.id]: todos }))
+      }
+
       setFeedback({ tipo: 'ok', msg: 'Selección registrada. Cuando termines de cocinar, marcá "Ya terminé".' })
       setSelTurnoId(null)
       setSelMenuId(null)
@@ -270,6 +286,17 @@ export default function ResidenteHomePage() {
 
   function formatCantidad(cantidad: number, unidad: string): string {
     return unidad.toLowerCase() === 'unidades' ? `${cantidad} u.` : `${cantidad} ${unidad.toLowerCase()}`
+  }
+
+  function calcularMaxPersonasPorStock(ingredientes: Ingrediente[]): number {
+    let max = 999
+    for (const ing of ingredientes) {
+      if (ing.cantidad_por_persona <= 0) continue
+      const enStock = stockPorAlimento.get(ing.alimento.id) ?? 0
+      const posibles = Math.floor((enStock - ing.cantidad_base) / ing.cantidad_por_persona)
+      if (posibles < max) max = Math.max(0, posibles)
+    }
+    return max === 999 ? 200 : max
   }
 
   if (loading) {
@@ -395,14 +422,8 @@ export default function ResidenteHomePage() {
                       ) : miaSel?.estado === 'PENDIENTE' ? (
                         <button
                           onClick={() => {
-                            const ajustesBase = Object.entries(ajustesIngredientes)
-                              .map(([id, v]) => ({ alimento_id: Number(id), cantidad: Number(v) }))
-                              .filter(a => !isNaN(a.cantidad) && a.cantidad >= 0)
-                            const ajustesExtra = extrasIngredientes
-                              .map(e => ({ alimento_id: e.alimento_id, cantidad: Number(e.cantidad) }))
-                              .filter(a => !isNaN(a.cantidad) && a.cantidad > 0)
-                            const todos = [...ajustesBase, ...ajustesExtra]
-                            termineDecocinar(miaSel.id, todos.length ? todos : undefined)
+                            const ajustes = ajustesPendientes[miaSel.id]
+                            termineDecocinar(miaSel.id, ajustes?.length ? ajustes : undefined)
                           }}
                           disabled={confirmando === miaSel.id}
                           className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
@@ -532,17 +553,31 @@ export default function ResidenteHomePage() {
                             ))}
                           </div>
 
-                          <div className="flex items-center gap-3">
-                            <label className="text-xs font-medium text-gray-600">Personas:</label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={50}
-                              value={selPersonas}
-                              onChange={e => setSelPersonas(Number(e.target.value))}
-                              className="w-20 h-8 rounded-lg border border-gray-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                            />
-                          </div>
+                          {(() => {
+                            const menuSel2 = selMenuId ? menus.find(m => m.id === selMenuId) : null
+                            const maxPersonas = menuSel2 ? calcularMaxPersonasPorStock(menuSel2.ingredientes) : 200
+                            return (
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <label className="text-xs font-medium text-gray-600">Personas:</label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={maxPersonas || 1}
+                                  value={selPersonas}
+                                  onChange={e => {
+                                    const v = Math.min(Number(e.target.value), maxPersonas || 1)
+                                    setSelPersonas(v)
+                                  }}
+                                  className="w-20 h-8 rounded-lg border border-gray-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                />
+                                {menuSel2 && menuSel2.ingredientes.length > 0 && maxPersonas < 200 && (
+                                  <span className="text-xs text-orange-500 font-medium">
+                                    máx. {maxPersonas} por stock
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
 
                           {/* Ingredientes del menú seleccionado */}
                           {menuSel && menuSel.ingredientes.length > 0 && (
