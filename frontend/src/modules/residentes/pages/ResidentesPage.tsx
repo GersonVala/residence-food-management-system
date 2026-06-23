@@ -122,6 +122,10 @@ export default function ResidentesPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!residenciaId) return
+    if (!form.provincia_origen) {
+      setError('Seleccioná una provincia de origen.')
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -134,8 +138,8 @@ export default function ResidentesPage() {
       setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '' })
       load()
     } catch (err: unknown) {
-      const e = err as { mensaje?: string }
-      setError(e.mensaje ?? 'Error al crear residente')
+      const e = err as { mensaje?: string; message?: string }
+      setError(e.mensaje ?? e.message ?? 'Error al crear residente')
     } finally {
       setSaving(false)
     }

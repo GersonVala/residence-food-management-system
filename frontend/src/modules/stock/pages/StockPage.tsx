@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { decodeToken, getToken } from '@/modules/auth/auth.utils'
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Modal } from '@/components/ui/modal'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Package, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react'
+import { Package, AlertTriangle, ChevronRight, ExternalLink, Layers, Pencil, Check, X } from 'lucide-react'
 
 interface StockItem {
   id: number
@@ -47,14 +47,28 @@ interface Movimiento {
 
 const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES'] as const
 
-function estadoStock(s: StockItem) {
+function estadoLote(s: StockItem) {
   const vencido = s.fecha_vencimiento && new Date(s.fecha_vencimiento) < new Date()
   const porVencer = s.fecha_vencimiento && !vencido &&
     (new Date(s.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 7
-  const bajoMinimo = s.stock_minimo != null && s.cantidad < s.stock_minimo
 
   if (vencido) return { label: 'Vencido', color: 'bg-gray-100 text-gray-700' }
   if (porVencer) return { label: 'Por vencer', color: 'bg-orange-100 text-orange-700' }
+  return { label: 'OK', color: 'bg-green-100 text-green-700' }
+}
+
+function estadoAgrupado(lotes: StockItem[]) {
+  const total = lotes.reduce((acc, l) => acc + l.cantidad, 0)
+  const stockMinimo = lotes.find(l => l.stock_minimo != null)?.stock_minimo ?? null
+  const bajoMinimo = stockMinimo != null && total < stockMinimo
+  const hayVencido = lotes.some(l => l.fecha_vencimiento && new Date(l.fecha_vencimiento) < new Date())
+  const hayPorVencer = !hayVencido && lotes.some(l => {
+    if (!l.fecha_vencimiento) return false
+    return (new Date(l.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 7
+  })
+
+  if (hayVencido) return { label: 'Vencido', color: 'bg-gray-100 text-gray-700' }
+  if (hayPorVencer) return { label: 'Por vencer', color: 'bg-orange-100 text-orange-700' }
   if (bajoMinimo) return { label: 'Bajo mínimo', color: 'bg-red-100 text-red-700' }
   return { label: 'OK', color: 'bg-green-100 text-green-700' }
 }
@@ -136,11 +150,27 @@ export default function StockPage() {
   const [alimentos, setAlimentos] = useState<AlimentoBasico[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [expandedAlimentoId, setExpandedAlimentoId] = useState<number | null>(null)
+  const [expandedStockId, setExpandedStockId] = useState<number | null>(null)
   const [form, setForm] = useState({ alimento_id: '', cantidad: '', unidad: 'UNIDADES', fecha_vencimiento: '', stock_minimo: '' })
+  const [tieneVencimiento, setTieneVencimiento] = useState(false)
   const [alimentoSel, setAlimentoSel] = useState<AlimentoBasico | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [editingMinimoAlimentoId, setEditingMinimoAlimentoId] = useState<number | null>(null)
+  const [minimoInput, setMinimoInput] = useState('')
+  const [savingMinimo, setSavingMinimo] = useState(false)
+
+  const stockAgrupado = useMemo(() => {
+    const mapa = new Map<number, { alimento: StockItem['alimento']; lotes: StockItem[] }>()
+    for (const item of stock) {
+      if (!mapa.has(item.alimento.id)) {
+        mapa.set(item.alimento.id, { alimento: item.alimento, lotes: [] })
+      }
+      mapa.get(item.alimento.id)!.lotes.push(item)
+    }
+    return Array.from(mapa.values())
+  }, [stock])
 
   function load() {
     if (!residenciaId) return
@@ -171,12 +201,26 @@ export default function StockPage() {
       setModalOpen(false)
       setForm({ alimento_id: '', cantidad: '', unidad: 'UNIDADES', fecha_vencimiento: '', stock_minimo: '' })
       setAlimentoSel(null)
+      setTieneVencimiento(false)
       load()
     } catch (err: unknown) {
       const e = err as { mensaje?: string }
       setError(e.mensaje ?? 'Error al registrar stock')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleGuardarMinimo(alimentoId: number) {
+    if (!residenciaId) return
+    setSavingMinimo(true)
+    try {
+      const valor = minimoInput === '' ? null : Number(minimoInput)
+      await api.patch(`/residencias/${residenciaId}/stock/alimento/${alimentoId}/minimo`, { stock_minimo: valor })
+      setEditingMinimoAlimentoId(null)
+      load()
+    } finally {
+      setSavingMinimo(false)
     }
   }
 
@@ -191,70 +235,116 @@ export default function StockPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
-        <Button onClick={() => { setError(''); setModalOpen(true) }}>Registrar entrada</Button>
+        <Button onClick={() => { setError(''); setForm({ alimento_id: '', cantidad: '', unidad: 'UNIDADES', fecha_vencimiento: '', stock_minimo: '' }); setAlimentoSel(null); setTieneVencimiento(false); setModalOpen(true) }}>Registrar entrada</Button>
       </div>
 
       {loading ? (
         <p className="text-gray-500">Cargando...</p>
-      ) : stock.length === 0 ? (
+      ) : stockAgrupado.length === 0 ? (
         <EmptyState icon={Package} title="Sin stock" description="Registrá el primer ingreso de alimentos." />
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['', 'Alimento', 'Cantidad', 'Unidad', 'Mínimo', 'Vencimiento', 'Estado', ''].map((h, i) => (
+                {['', 'Alimento', 'Total', 'Mínimo', 'Lotes', 'Estado', ''].map((h, i) => (
                   <th key={i} className="text-left px-4 py-3 font-medium text-gray-600">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {stock.map(s => {
-                const estado = estadoStock(s)
-                const isExpanded = expandedId === s.id
+              {stockAgrupado.map(({ alimento, lotes }) => {
+                const isExpanded = expandedAlimentoId === alimento.id
+                const totalCantidad = lotes.reduce((acc, l) => acc + l.cantidad, 0)
+                const unidad = lotes[0]?.unidad ?? ''
+                const estadoResumen = estadoAgrupado(lotes)
+
                 return (
-                  <Fragment key={s.id}>
+                  <Fragment key={alimento.id}>
+                    {/* Fila agrupada por alimento */}
                     <tr
                       className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setExpandedId(isExpanded ? null : s.id)}
+                      onClick={() => setExpandedAlimentoId(isExpanded ? null : alimento.id)}
                     >
                       <td className="px-3 py-3 text-gray-400">
                         <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        {s.alimento.nombre}
-                        {s.alimento.marca && (
-                          <span className="text-gray-400 font-normal ml-1 text-xs">{s.alimento.marca}</span>
+                        {alimento.nombre}
+                        {alimento.marca && (
+                          <span className="text-gray-400 font-normal ml-1 text-xs">{alimento.marca}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-gray-800 font-semibold">
-                        {s.cantidad}
-                        {s.alimento.unidad_base === 'UNIDADES' && s.alimento.contenido_neto && (
+                        {totalCantidad} {unidad.toLowerCase()}
+                        {alimento.unidad_base === 'UNIDADES' && alimento.contenido_neto && (
                           <span className="ml-1 text-xs font-normal text-gray-400">
-                            ({s.cantidad * s.alimento.contenido_neto} {s.alimento.unidad_contenido})
+                            ({totalCantidad * alimento.contenido_neto} {alimento.unidad_contenido})
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{s.unidad}</td>
-                      <td className="px-4 py-3 text-gray-500">{s.stock_minimo ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {s.fecha_vencimiento ? (
+                      <td className="px-4 py-3 text-gray-500" onClick={e => e.stopPropagation()}>
+                        {editingMinimoAlimentoId === alimento.id ? (
                           <span className="flex items-center gap-1">
-                            {estado.label !== 'OK' && estado.label !== 'Bajo mínimo' && (
-                              <AlertTriangle size={13} className="text-orange-500" />
-                            )}
-                            {new Date(s.fecha_vencimiento).toLocaleDateString('es-AR')}
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={minimoInput}
+                              onChange={e => setMinimoInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') handleGuardarMinimo(alimento.id)
+                                if (e.key === 'Escape') setEditingMinimoAlimentoId(null)
+                              }}
+                              autoFocus
+                              className="w-20 rounded border border-gray-300 px-2 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <button
+                              onClick={() => handleGuardarMinimo(alimento.id)}
+                              disabled={savingMinimo}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Check size={13} />
+                            </button>
+                            <button
+                              onClick={() => setEditingMinimoAlimentoId(null)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <X size={13} />
+                            </button>
                           </span>
-                        ) : <span className="text-gray-300">—</span>}
+                        ) : (
+                          <span className="flex items-center gap-1 group">
+                            <span>{lotes.find(l => l.stock_minimo != null)?.stock_minimo ?? '—'}</span>
+                            <button
+                              onClick={() => {
+                                const actual = lotes.find(l => l.stock_minimo != null)?.stock_minimo
+                                setMinimoInput(actual != null ? String(actual) : '')
+                                setEditingMinimoAlimentoId(alimento.id)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-purple-600 transition-opacity"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {lotes.length > 1 ? (
+                          <span className="inline-flex items-center gap-1 text-purple-600 font-medium">
+                            <Layers size={13} />
+                            {lotes.length} lotes
+                          </span>
+                        ) : '1 lote'}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${estado.color}`}>
-                          {estado.label}
+                        <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${estadoResumen.color}`}>
+                          {estadoResumen.label}
                         </span>
                       </td>
                       <td className="px-3 py-3">
                         <Link
-                          to={`/alimentos/${s.alimento.id}`}
+                          to={`/alimentos/${alimento.id}`}
                           title="Ver detalle del alimento"
                           className="inline-flex items-center justify-center w-7 h-7 rounded-md text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
                           onClick={e => e.stopPropagation()}
@@ -263,7 +353,64 @@ export default function StockPage() {
                         </Link>
                       </td>
                     </tr>
-                    {isExpanded && <StockRowDetail stockId={s.id} />}
+
+                    {/* Lotes individuales expandidos */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={7} className="px-4 pb-3 pt-0 bg-gray-50">
+                          <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                            <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lotes</p>
+                            </div>
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-400 font-medium border-b border-gray-100">
+                                  <th className="text-left px-4 py-2">Cantidad</th>
+                                  <th className="text-left px-4 py-2">Unidad</th>
+                                  <th className="text-left px-4 py-2">Vencimiento</th>
+                                  <th className="text-left px-4 py-2">Estado</th>
+                                  <th className="px-4 py-2" />
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {lotes.map(lote => {
+                                  const estado = estadoLote(lote)
+                                  const loteExpanded = expandedStockId === lote.id
+                                  return (
+                                    <Fragment key={lote.id}>
+                                      <tr
+                                        className="hover:bg-gray-50 cursor-pointer"
+                                        onClick={() => setExpandedStockId(loteExpanded ? null : lote.id)}
+                                      >
+                                        <td className="px-4 py-2 font-semibold text-gray-800">{lote.cantidad}</td>
+                                        <td className="px-4 py-2 text-gray-500">{lote.unidad}</td>
+                                        <td className="px-4 py-2 text-gray-600">
+                                          {lote.fecha_vencimiento ? (
+                                            <span className="flex items-center gap-1">
+                                              {estado.label === 'Por vencer' && <AlertTriangle size={11} className="text-orange-500" />}
+                                              {new Date(lote.fecha_vencimiento).toLocaleDateString('es-AR')}
+                                            </span>
+                                          ) : <span className="text-gray-300">Sin vencimiento</span>}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                          <span className={`font-semibold rounded-full px-2 py-0.5 ${estado.color}`}>
+                                            {estado.label}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-400">
+                                          <ChevronRight size={12} className={`transition-transform ${loteExpanded ? 'rotate-90' : ''}`} />
+                                        </td>
+                                      </tr>
+                                      {loteExpanded && <StockRowDetail stockId={lote.id} />}
+                                    </Fragment>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 )
               })}
@@ -330,15 +477,33 @@ export default function StockPage() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="st-minimo">Stock mínimo <span className="text-xs text-gray-400">(opc.)</span></Label>
-              <Input id="st-minimo" type="number" step="0.01" min="0" value={form.stock_minimo} onChange={e => setForm(f => ({ ...f, stock_minimo: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="st-venc">Vencimiento <span className="text-xs text-gray-400">(opc.)</span></Label>
-              <Input id="st-venc" type="date" value={form.fecha_vencimiento} onChange={e => setForm(f => ({ ...f, fecha_vencimiento: e.target.value }))} />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="st-minimo">Stock mínimo <span className="text-xs text-gray-400">(opc.)</span></Label>
+            <Input id="st-minimo" type="number" step="0.01" min="0" value={form.stock_minimo} onChange={e => setForm(f => ({ ...f, stock_minimo: e.target.value }))} />
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={tieneVencimiento}
+                onChange={e => {
+                  setTieneVencimiento(e.target.checked)
+                  if (!e.target.checked) setForm(f => ({ ...f, fecha_vencimiento: '' }))
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-sm text-gray-700">Tiene fecha de vencimiento</span>
+            </label>
+            {tieneVencimiento && (
+              <Input
+                id="st-venc"
+                type="date"
+                value={form.fecha_vencimiento}
+                onChange={e => setForm(f => ({ ...f, fecha_vencimiento: e.target.value }))}
+                required
+              />
+            )}
           </div>
           {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
           <div className="flex gap-2 pt-1">

@@ -94,11 +94,19 @@ function MenuCard({
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState('')
 
+  // Ingredientes en modal edición
+  const [editPersonas, setEditPersonas] = useState(menu.personas_base)
+  const [editIngForm, setEditIngForm] = useState({ alimento_id: '', nombre: '', marca: '' as string | null, cantidad_base: '', unidad: 'GR' })
+  const [editPickerOpen, setEditPickerOpen] = useState(false)
+  const [addingEditIng, setAddingEditIng] = useState(false)
+  const [savingEditIng, setSavingEditIng] = useState(false)
+  const [editIngError, setEditIngError] = useState('')
+
   // Upload imagen
   const imgInputRef = useRef<HTMLInputElement>(null)
   const [uploadingImg, setUploadingImg] = useState(false)
 
-  // Agregar ingrediente
+  // Agregar ingrediente (card expandida)
   const [addingIng, setAddingIng] = useState(false)
   const [ingForm, setIngForm] = useState({ alimento_id: '', nombre: '', marca: '' as string | null, cantidad_base: '', unidad: 'GR' })
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -153,6 +161,27 @@ function MenuCard({
     } finally {
       setUploadingImg(false)
       if (imgInputRef.current) imgInputRef.current.value = ''
+    }
+  }
+
+  async function handleAddEditIng() {
+    setSavingEditIng(true)
+    setEditIngError('')
+    try {
+      await api.post(`/menus/${menu.id}/ingredientes`, {
+        alimento_id: Number(editIngForm.alimento_id),
+        cantidad_base: Number(editIngForm.cantidad_base),
+        cantidad_por_persona: 0,
+        unidad: editIngForm.unidad,
+      })
+      setEditIngForm({ alimento_id: '', nombre: '', marca: '', cantidad_base: '', unidad: 'GR' })
+      setAddingEditIng(false)
+      onIngredienteAdded()
+    } catch (err: unknown) {
+      const e = err as { mensaje?: string }
+      setEditIngError(e.mensaje ?? 'Error al agregar ingrediente')
+    } finally {
+      setSavingEditIng(false)
     }
   }
 
@@ -495,6 +524,123 @@ function MenuCard({
               onChange={e => setEditForm(f => ({ ...f, video_url: e.target.value }))}
             />
           </div>
+          {/* Ingredientes en edición */}
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-700">Ingredientes</p>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span>Para</span>
+                <div className="flex items-center">
+                  <button type="button" onClick={() => setEditPersonas(p => Math.max(1, p - 1))} className="w-6 h-6 rounded-l border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 flex items-center justify-center font-bold">−</button>
+                  <input
+                    type="number" min="1" value={editPersonas}
+                    onChange={e => setEditPersonas(Math.max(1, Number(e.target.value)))}
+                    className="w-10 h-6 border-t border-b border-gray-300 text-center text-xs bg-white focus:outline-none"
+                  />
+                  <button type="button" onClick={() => setEditPersonas(p => p + 1)} className="w-6 h-6 rounded-r border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 flex items-center justify-center font-bold">+</button>
+                </div>
+                <span>personas</span>
+                {editPersonas !== menu.personas_base && (
+                  <button type="button" onClick={() => setEditPersonas(menu.personas_base)} className="text-gray-400 hover:text-gray-600 underline">resetear</button>
+                )}
+              </div>
+            </div>
+
+            {menu.ingredientes.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Sin ingredientes.</p>
+            ) : (
+              <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full text-xs">
+                  <tbody className="divide-y divide-gray-100">
+                    {menu.ingredientes.map(ing => {
+                      const cant = menu.personas_base === 0 ? ing.cantidad_base : (ing.cantidad_base / menu.personas_base) * editPersonas
+                      const escalado = editPersonas !== menu.personas_base
+                      return (
+                        <tr key={ing.alimento_id} className="hover:bg-gray-100">
+                          <td className="px-3 py-2 text-gray-800 font-medium">
+                            {ing.alimento.nombre}
+                            {ing.alimento.marca && <span className="text-gray-400 ml-1">({ing.alimento.marca})</span>}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold">
+                            <span className={escalado ? 'text-purple-700' : 'text-gray-700'}>
+                              {Number.isInteger(cant) ? cant : cant.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-500">{ing.unidad}</td>
+                          <td className="px-2 py-2">
+                            <button type="button" onClick={() => handleRemoveIng(ing.alimento_id)} className="text-gray-300 hover:text-red-500 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {addingEditIng ? (
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setEditPickerOpen(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-purple-400 hover:text-purple-600 transition-colors text-sm text-left"
+                >
+                  <Search size={14} className="text-gray-400 shrink-0" />
+                  {editIngForm.alimento_id ? (
+                    <span className="font-medium text-gray-900 truncate">
+                      {editIngForm.nombre}{editIngForm.marca ? ` — ${editIngForm.marca}` : ''}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">Buscar alimento...</span>
+                  )}
+                </button>
+                {editIngForm.alimento_id && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-500">Cantidad para {editForm.personas_base} pers.</Label>
+                      <Input type="number" step="0.01" min="0" value={editIngForm.cantidad_base} onChange={e => setEditIngForm(f => ({ ...f, cantidad_base: e.target.value }))} required className="h-9 text-sm" autoFocus />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-500">Unidad</Label>
+                      <select
+                        value={editIngForm.unidad}
+                        onChange={e => setEditIngForm(f => ({ ...f, unidad: e.target.value }))}
+                        className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {editIngError && <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">{editIngError}</p>}
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setAddingEditIng(false)}>Cancelar</Button>
+                  <Button type="button" size="sm" className="flex-1" disabled={savingEditIng || !editIngForm.alimento_id || !editIngForm.cantidad_base} onClick={handleAddEditIng}>
+                    {savingEditIng ? 'Guardando...' : 'Agregar'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingEditIng(true)}
+                className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 font-medium"
+              >
+                <Plus size={12} /> Agregar ingrediente
+              </button>
+            )}
+
+            <AlimentoPicker
+              open={editPickerOpen}
+              onClose={() => setEditPickerOpen(false)}
+              onSelect={a => setEditIngForm(f => ({ ...f, alimento_id: String(a.id), nombre: a.nombre, marca: a.marca, unidad: a.unidad_base }))}
+              alimentos={alimentos as AlimentoPickerItem[]}
+              excluirIds={menu.ingredientes.map(i => i.alimento_id)}
+            />
+          </div>
+
           {editError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{editError}</p>}
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>Cancelar</Button>

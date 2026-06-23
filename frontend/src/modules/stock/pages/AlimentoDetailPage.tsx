@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
-import { getToken } from '@/modules/auth/auth.utils'
+import { decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Pencil, Save, X, ImagePlus } from 'lucide-react'
@@ -31,6 +31,10 @@ export default function AlimentoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
+  const token = getToken()
+  const decoded = token ? decodeToken(token) : null
+  const residenciaId = (decoded as unknown as { residencia_id?: number })?.residencia_id
+
   const [alimento, setAlimento] = useState<Alimento | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,21 +43,34 @@ export default function AlimentoDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const [stockMinimo, setStockMinimo] = useState<number | null>(null)
+  const [editingMinimo, setEditingMinimo] = useState(false)
+  const [minimoInput, setMinimoInput] = useState('')
+  const [savingMinimo, setSavingMinimo] = useState(false)
+
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!id) return
-    Promise.all([
-      api.get<Alimento>(`/alimentos/${id}`),
-      api.get<Categoria[]>('/categorias'),
-    ]).then(([a, c]) => {
+    const alimentoReq = api.get<Alimento>(`/alimentos/${id}`)
+    const categoriasReq = api.get<Categoria[]>('/categorias')
+    const stockReq = residenciaId
+      ? api.get<{ alimento: { id: number }; stock_minimo: number | null }[]>(`/residencias/${residenciaId}/stock`)
+          .then(items => items.filter(s => s.alimento.id === Number(id)))
+          .catch(() => [] as { alimento: { id: number }; stock_minimo: number | null }[])
+      : Promise.resolve([] as { alimento: { id: number }; stock_minimo: number | null }[])
+
+    Promise.all([alimentoReq, categoriasReq, stockReq]).then(([a, c, lotes]) => {
       setAlimento(a)
       setCategorias(c)
       resetForm(a)
+      const minimo = lotes.find(l => l.stock_minimo != null)?.stock_minimo ?? null
+      setStockMinimo(minimo)
+      setMinimoInput(minimo != null ? String(minimo) : '')
     }).finally(() => setLoading(false))
-  }, [id])
+  }, [id, residenciaId])
 
   function resetForm(a: Alimento) {
     setForm({
@@ -132,6 +149,19 @@ export default function AlimentoDetailPage() {
       setError(e.mensaje ?? 'Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleGuardarMinimo() {
+    if (!residenciaId || !id) return
+    setSavingMinimo(true)
+    try {
+      const valor = minimoInput === '' ? null : Number(minimoInput)
+      await api.patch(`/residencias/${residenciaId}/stock/alimento/${id}/minimo`, { stock_minimo: valor })
+      setStockMinimo(valor)
+      setEditingMinimo(false)
+    } finally {
+      setSavingMinimo(false)
     }
   }
 
@@ -254,7 +284,7 @@ export default function AlimentoDetailPage() {
             <>
               {campo('Contenido neto', 'contenido_neto', 'number')}
               {editing
-                ? campoSelect('Unidad contenido', 'unidad_contenido', UNIDADES.filter(u => u !== 'UNIDADES'))
+                ? campoSelect('Unidad contenido', 'unidad_contenido', UNIDADES)
                 : (
                   <div className="space-y-1">
                     <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Unidad contenido</p>
@@ -285,6 +315,57 @@ export default function AlimentoDetailPage() {
           </div>
         )}
       </div>
+
+      {residenciaId && (
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-800 text-sm">Stock en esta residencia</h2>
+          </div>
+          <div className="px-5 py-4 flex items-center gap-4">
+            <div className="space-y-1 flex-1">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Stock mínimo</p>
+              {editingMinimo ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={minimoInput}
+                    onChange={e => setMinimoInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleGuardarMinimo()
+                      if (e.key === 'Escape') setEditingMinimo(false)
+                    }}
+                    autoFocus
+                    className="w-32"
+                  />
+                  <Button size="sm" onClick={handleGuardarMinimo} disabled={savingMinimo}>
+                    {savingMinimo ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setMinimoInput(stockMinimo != null ? String(stockMinimo) : '')
+                    setEditingMinimo(false)
+                  }}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-medium text-gray-900">
+                    {stockMinimo != null ? stockMinimo : '—'}
+                  </p>
+                  <button
+                    onClick={() => setEditingMinimo(true)}
+                    className="text-gray-400 hover:text-purple-600 transition-colors"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
     </div>

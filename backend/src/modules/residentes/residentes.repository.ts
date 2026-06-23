@@ -71,6 +71,10 @@ export const residentesRepository = {
     return prisma.residente.findUnique({ where: { dni } });
   },
 
+  findByEmail(email: string): Promise<{ id: number } | null> {
+    return prisma.user.findUnique({ where: { email }, select: { id: true } });
+  },
+
   findByUserId(user_id: number): Promise<(Residente & { residencia: Pick<Residencia, 'id' | 'nombre' | 'ciudad' | 'provincia'>; user: { email: string; puede_cargar_stock: boolean } }) | null> {
     return prisma.residente.findFirst({
       where: { user_id, activo: true },

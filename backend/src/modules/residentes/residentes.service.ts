@@ -49,6 +49,9 @@ export const residentesService = {
     const existente = await residentesRepository.findByDni(data.dni);
     if (existente) conflict("Ya existe un residente con ese DNI");
 
+    const emailExistente = await residentesRepository.findByEmail(data.email);
+    if (emailExistente) conflict("Ya existe un usuario con ese email");
+
     const password_hash = await bcrypt.hash(data.dni, 10);
     return residentesRepository.create(data, password_hash);
   },
