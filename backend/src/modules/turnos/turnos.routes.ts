@@ -189,4 +189,43 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
       }
     }
   );
+
+  // GET /me/selecciones — historial de cocciones del residente autenticado
+  app.get(
+    "/me/selecciones",
+    { preHandler: [authMiddleware, requireRoles("RESIDENTE")] },
+    async (request, reply) => {
+      try {
+        const residente = await prisma.residente.findUnique({
+          where: { user_id: request.usuario.id },
+        });
+        if (!residente) {
+          return reply.status(404).send({ error: "Not Found", mensaje: "Residente no encontrado" });
+        }
+        const selecciones = await prisma.seleccionMenu.findMany({
+          where: { residente_id: residente.id },
+          include: {
+            menu: { select: { id: true, nombre: true, dificultad: true, tiempo_min: true, imagen_url: true } },
+            turno: {
+              select: {
+                id: true,
+                tipo: true,
+                dia_semana: true,
+                fecha: true,
+                franja: true,
+                grupo: { select: { id: true, nombre: true } },
+              },
+            },
+            ajustes: {
+              include: { alimento: { select: { id: true, nombre: true } } },
+            },
+          },
+          orderBy: { created_at: "desc" },
+        });
+        return reply.status(200).send(selecciones);
+      } catch (err) {
+        return handleError(err, reply);
+      }
+    }
+  );
 }

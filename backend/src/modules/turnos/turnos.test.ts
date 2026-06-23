@@ -52,7 +52,7 @@ async function crearResidente(residencia_id: number) {
       residencia_id,
     },
   });
-  return prisma.residente.create({
+  const residente = await prisma.residente.create({
     data: {
       user_id: user.id,
       residencia_id,
@@ -67,6 +67,7 @@ async function crearResidente(residencia_id: number) {
       fecha_ingreso: new Date("2024-03-01"),
     },
   });
+  return { ...residente, user };
 }
 
 async function crearMenu(residencia_id: number) {
@@ -589,5 +590,69 @@ describe("DELETE /selecciones/:id", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /me/selecciones
+// ---------------------------------------------------------------------------
+
+describe("GET /me/selecciones", () => {
+  it("retorna 401 sin token", async () => {
+    const res = await supertest(app.server).get("/me/selecciones");
+    expect(res.status).toBe(401);
+  });
+
+  it("retorna 403 si el usuario no es RESIDENTE", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+
+    const res = await supertest(app.server)
+      .get("/me/selecciones")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("retorna lista vacía cuando el residente no tiene selecciones", async () => {
+    const residencia = await crearResidencia();
+    const residente = await crearResidente(residencia.id);
+    const token = await login(residente.user.email);
+
+    const res = await supertest(app.server)
+      .get("/me/selecciones")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it("retorna selecciones con menu, turno y ajustes", async () => {
+    const residencia = await crearResidencia();
+    const grupo = await crearGrupo(residencia.id);
+    const turno = await prisma.turnoCocina.create({
+      data: { grupo_id: grupo.id, residencia_id: residencia.id, fecha: new Date("2025-12-01"), franja: "ALMUERZO" },
+    });
+    const residente = await crearResidente(residencia.id);
+    const { menu } = await crearMenuConIngredientes(residencia.id);
+    const token = await login(residente.user.email);
+
+    const admin = await crearAdmin();
+    const adminToken = await login(admin.email);
+
+    await supertest(app.server)
+      .post(`/turnos/${turno.id}/selecciones`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ residente_id: residente.id, menu_id: menu.id, personas: 3 });
+
+    const res = await supertest(app.server)
+      .get("/me/selecciones")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].menu.nombre).toBe("Milanesa con ing");
+    expect(res.body[0].turno.franja).toBe("ALMUERZO");
+    expect(res.body[0].personas).toBe(3);
   });
 });
