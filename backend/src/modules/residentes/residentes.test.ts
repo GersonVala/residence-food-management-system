@@ -55,6 +55,7 @@ beforeAll(async () => { await app.ready(); });
 afterAll(async () => { await app.close(); await prisma.$disconnect(); });
 
 beforeEach(async () => {
+  await prisma.seleccionAjuste.deleteMany();
   await prisma.seleccionMenu.deleteMany();
   await prisma.movimientoStock.deleteMany();
   await prisma.stock.deleteMany();
@@ -62,6 +63,7 @@ beforeEach(async () => {
   await prisma.menuGrupo.deleteMany();
   await prisma.menuIngrediente.deleteMany();
   await prisma.menu.deleteMany();
+  await prisma.turnoCocina.deleteMany();
   await prisma.grupoCocina.deleteMany();
   await prisma.residente.deleteMany();
   await prisma.user.deleteMany({ where: { role: "RESIDENTE" } });
