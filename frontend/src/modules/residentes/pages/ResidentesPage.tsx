@@ -36,6 +36,12 @@ interface Residente {
   user?: { email: string }
 }
 
+interface ResidenciaOpcion {
+  id: number
+  nombre: string
+  ciudad: string
+}
+
 export default function ResidentesPage() {
   const navigate = useNavigate()
   const token = getToken()
@@ -50,10 +56,11 @@ export default function ResidentesPage() {
   const [form, setForm] = useState({
     email: '', nombre: '', apellido: '', dni: '', edad: '',
     telefono: '', universidad: '', carrera: '',
-    ciudad_origen: '', provincia_origen: '', fecha_ingreso: ''
+    ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: ''
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [residenciasActivas, setResidenciasActivas] = useState<ResidenciaOpcion[]>([])
 
   // Filtros
   const [busqueda, setBusqueda] = useState('')
@@ -76,6 +83,13 @@ export default function ResidentesPage() {
   }
 
   useEffect(load, [isAdminGlobal, residenciaId])
+
+  useEffect(() => {
+    if (!isAdminGlobal) return
+    api.get<ResidenciaOpcion[]>('/residencias')
+      .then(rs => setResidenciasActivas(rs.filter((r: ResidenciaOpcion & { activo?: boolean }) => r.activo !== false)))
+      .catch(() => {})
+  }, [isAdminGlobal])
 
   // Opciones únicas para selects
   const residenciasOpciones = useMemo(() =>
@@ -121,7 +135,11 @@ export default function ResidentesPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!residenciaId) return
+    const targetResidenciaId = isAdminGlobal ? form.residencia_id : residenciaId
+    if (!targetResidenciaId) {
+      setError('Seleccioná una residencia.')
+      return
+    }
     if (!form.provincia_origen) {
       setError('Seleccioná una provincia de origen.')
       return
@@ -129,13 +147,21 @@ export default function ResidentesPage() {
     setSaving(true)
     setError('')
     try {
-      await api.post(`/residencias/${residenciaId}/residentes`, {
-        ...form,
+      await api.post(`/residencias/${targetResidenciaId}/residentes`, {
+        email: form.email,
+        nombre: form.nombre,
+        apellido: form.apellido,
+        dni: form.dni,
         edad: Number(form.edad),
+        telefono: form.telefono,
+        universidad: form.universidad,
+        carrera: form.carrera,
+        ciudad_origen: form.ciudad_origen,
+        provincia_origen: form.provincia_origen,
         fecha_ingreso: new Date(form.fecha_ingreso).toISOString()
       })
       setModalOpen(false)
-      setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '' })
+      setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: '' })
       load()
     } catch (err: unknown) {
       const e = err as { mensaje?: string; message?: string }
@@ -165,9 +191,7 @@ export default function ResidentesPage() {
             </p>
           )}
         </div>
-        {!isAdminGlobal && (
-          <Button onClick={() => setModalOpen(true)}>Nuevo residente</Button>
-        )}
+        <Button onClick={() => setModalOpen(true)}>Nuevo residente</Button>
       </div>
 
       {/* Buscador y filtros */}
@@ -338,9 +362,25 @@ export default function ResidentesPage() {
       )}
 
       {/* Modal crear residente */}
-      {!isAdminGlobal && (
-        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo residente">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo residente">
           <form onSubmit={handleCreate} className="space-y-3">
+            {isAdminGlobal && (
+              <div className="space-y-1">
+                <Label htmlFor="residencia_id">Residencia</Label>
+                <select
+                  id="residencia_id"
+                  value={form.residencia_id}
+                  onChange={e => setForm(f => ({ ...f, residencia_id: e.target.value }))}
+                  required
+                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Seleccioná una residencia</option>
+                  {residenciasActivas.map(r => (
+                    <option key={r.id} value={String(r.id)}>{r.nombre} — {r.ciudad}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {[
               { id: 'nombre', label: 'Nombre', type: 'text' },
               { id: 'apellido', label: 'Apellido', type: 'text' },
@@ -385,8 +425,7 @@ export default function ResidentesPage() {
               <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Guardando...' : 'Crear'}</Button>
             </div>
           </form>
-        </Modal>
-      )}
+      </Modal>
     </div>
   )
 }

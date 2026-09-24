@@ -205,7 +205,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/alimentos/:id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requirePuedeCargarStock],
       schema: {
         body: {
           type: "object",

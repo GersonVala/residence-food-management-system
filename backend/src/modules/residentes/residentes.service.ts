@@ -56,7 +56,7 @@ export const residentesService = {
     return residentesRepository.create(data, password_hash);
   },
 
-  async actualizar(id: number, data: UpdateResidenteData): Promise<Residente> {
+  async actualizar(id: number, data: UpdateResidenteData): Promise<ResidenteDetalle> {
     await residentesService.obtener(id);
 
     if (data.dni) {
