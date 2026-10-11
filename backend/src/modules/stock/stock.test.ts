@@ -50,9 +50,13 @@ beforeEach(async () => {
   await prisma.menuIngrediente.deleteMany();
   await prisma.menu.deleteMany();
   await prisma.turnoCocina.deleteMany();
+  await prisma.grupoIntegrante.deleteMany();
   await prisma.grupoCocina.deleteMany();
+  await prisma.residente.deleteMany();
+  await prisma.user.deleteMany({ where: { residencia_id: { not: null } } });
   await prisma.alimento.deleteMany();
   await prisma.categoria.deleteMany();
+  await prisma.residenciaFoto.deleteMany();
   await prisma.residencia.deleteMany();
 });
 
@@ -443,6 +447,49 @@ describe("POST /stock/:stock_id/movimientos", () => {
     expect(res.status).toBe(400);
   });
 
+  it("dos salidas simultáneas que juntas exceden el stock: una 201, una 400, nunca negativo", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const cat = await prisma.categoria.create({ data: { nombre: "Granos" } });
+    const alimento = await prisma.alimento.create({
+      data: { nombre: "Arroz", unidad_base: "KG", categoria_id: cat.id },
+    });
+    const stock = await prisma.stock.create({
+      data: { alimento_id: alimento.id, residencia_id: residencia.id, cantidad: 10, unidad: "KG" },
+    });
+
+    const salida = () =>
+      supertest(app.server)
+        .post(`/stock/${stock.id}/movimientos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ tipo: "SALIDA", cantidad: 6 });
+    const [a, b] = await Promise.all([salida(), salida()]);
+
+    expect([a.status, b.status].sort()).toEqual([201, 400]);
+    const actualizado = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(actualizado?.cantidad).toBe(4);
+    const movs = await prisma.movimientoStock.count({ where: { stock_id: stock.id, tipo: "SALIDA" } });
+    expect(movs).toBe(1);
+  });
+
+  it("la base rechaza un stock con cantidad negativa (CHECK)", async () => {
+    const residencia = await crearResidencia();
+    const cat = await prisma.categoria.create({ data: { nombre: "Check" } });
+    const alimento = await prisma.alimento.create({
+      data: { nombre: "Harina", unidad_base: "KG", categoria_id: cat.id },
+    });
+    const stock = await prisma.stock.create({
+      data: { alimento_id: alimento.id, residencia_id: residencia.id, cantidad: 1, unidad: "KG" },
+    });
+
+    await expect(
+      prisma.stock.update({ where: { id: stock.id }, data: { cantidad: -1 } })
+    ).rejects.toThrow();
+    const intacto = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(intacto?.cantidad).toBe(1);
+  });
+
   it("registra un ajuste sin modificar la cantidad", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
@@ -490,5 +537,33 @@ describe("GET /stock/:stock_id/movimientos", () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].tipo).toBe("ENTRADA");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stockService.registrarMovimiento — atomicidad
+// ---------------------------------------------------------------------------
+
+describe("stockService.registrarMovimiento", () => {
+  it("no modifica el stock si falla el registro del movimiento", async () => {
+    const { stockService } = await import("./stock.service.js");
+    const residencia = await prisma.residencia.create({
+      data: { nombre: "Res Atomica", direccion: "X", ciudad: "X", provincia: "X", capacidad_max: 10 },
+    });
+    const categoria = await prisma.categoria.create({ data: { nombre: `Cat-atomica-${Date.now()}` } });
+    const alimento = await prisma.alimento.create({
+      data: { nombre: "Arroz", unidad_base: "KG", categoria_id: categoria.id },
+    });
+    const stock = await prisma.stock.create({
+      data: { alimento_id: alimento.id, residencia_id: residencia.id, cantidad: 10, unidad: "KG" },
+    });
+
+    // user_id inexistente: la creación del movimiento viola la clave foránea
+    await expect(
+      stockService.registrarMovimiento({ stock_id: stock.id, tipo: "SALIDA", cantidad: 3, user_id: 999_999 })
+    ).rejects.toBeDefined();
+
+    const despues = await prisma.stock.findUnique({ where: { id: stock.id } });
+    expect(despues?.cantidad).toBe(10);
   });
 });

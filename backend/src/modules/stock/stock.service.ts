@@ -183,14 +183,20 @@ export const stockService = {
     const stock = await stockRepository.findStockById(data.stock_id);
     if (!stock || !stock.activo) notFound("Stock no encontrado");
 
-    if (data.tipo === "SALIDA" && stock.cantidad < data.cantidad) {
-      badRequest("Stock insuficiente para registrar la salida");
-    }
-
-    const delta = data.tipo === "ENTRADA" ? data.cantidad : data.tipo === "SALIDA" ? -data.cantidad : 0;
-    const nuevaCantidad = stock.cantidad + delta;
-
-    await stockRepository.updateStock(data.stock_id, { cantidad: nuevaCantidad });
-    return stockRepository.createMovimiento(data);
+    // Stock y movimiento se escriben juntos: si falla uno, no queda ninguno
+    return prisma.$transaction(async (tx) => {
+      if (data.tipo === "SALIDA") {
+        // Descuento condicional atómico: la condición se evalúa bajo el lock de la fila,
+        // así dos salidas simultáneas no pueden dejar el stock en negativo
+        const { count } = await tx.stock.updateMany({
+          where: { id: data.stock_id, cantidad: { gte: data.cantidad } },
+          data: { cantidad: { decrement: data.cantidad } },
+        });
+        if (count !== 1) badRequest("Stock insuficiente para registrar la salida");
+      } else if (data.tipo === "ENTRADA") {
+        await tx.stock.update({ where: { id: data.stock_id }, data: { cantidad: { increment: data.cantidad } } });
+      }
+      return tx.movimientoStock.create({ data });
+    });
   },
 };
