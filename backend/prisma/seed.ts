@@ -747,13 +747,11 @@ async function main() {
       where: { turno_id: turnoHoy.id, residente_id: resIds[0] },
     });
     if (!yaExiste) {
-      const residencia = await prisma.residencia.findUnique({ where: { id: residenciaId } });
-      const rollback_deadline = new Date(fechaHoy.getTime() - (residencia?.rollback_horas ?? 2) * 60 * 60 * 1000);
       await prisma.seleccionMenu.create({
         data: {
           turno_id: turnoHoy.id, menu_id: menus[0],
           residente_id: resIds[0], personas: 8,
-          estado: "PENDIENTE", rollback_deadline,
+          estado: "PENDIENTE",
         },
       });
     }
