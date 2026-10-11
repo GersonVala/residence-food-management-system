@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
+import { PasswordTemporal } from '@/components/ui/password-temporal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Users, Eye, Search, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
@@ -60,6 +61,7 @@ export default function ResidentesPage() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [credencial, setCredencial] = useState<{ email: string; password: string } | null>(null)
   const [residenciasActivas, setResidenciasActivas] = useState<ResidenciaOpcion[]>([])
 
   // Filtros
@@ -133,6 +135,12 @@ export default function ResidentesPage() {
     setFiltroEstado('todos')
   }
 
+  function cerrarModal() {
+    setModalOpen(false)
+    setCredencial(null)
+    setError('')
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     const targetResidenciaId = isAdminGlobal ? form.residencia_id : residenciaId
@@ -147,7 +155,7 @@ export default function ResidentesPage() {
     setSaving(true)
     setError('')
     try {
-      await api.post(`/residencias/${targetResidenciaId}/residentes`, {
+      const creado = await api.post<{ password_temporal: string }>(`/residencias/${targetResidenciaId}/residentes`, {
         email: form.email,
         nombre: form.nombre,
         apellido: form.apellido,
@@ -160,7 +168,7 @@ export default function ResidentesPage() {
         provincia_origen: form.provincia_origen,
         fecha_ingreso: new Date(form.fecha_ingreso).toISOString()
       })
-      setModalOpen(false)
+      setCredencial({ email: form.email, password: creado.password_temporal })
       setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: '' })
       load()
     } catch (err: unknown) {
@@ -362,7 +370,13 @@ export default function ResidentesPage() {
       )}
 
       {/* Modal crear residente */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo residente">
+      <Modal open={modalOpen} onClose={cerrarModal} title={credencial ? 'Residente creado' : 'Nuevo residente'}>
+        {credencial ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">Contraseña temporal de <strong>{credencial.email}</strong>:</p>
+            <PasswordTemporal password={credencial.password} destinatario="al residente" onClose={cerrarModal} />
+          </div>
+        ) : (
           <form onSubmit={handleCreate} className="space-y-3">
             {isAdminGlobal && (
               <div className="space-y-1">
@@ -421,10 +435,11 @@ export default function ResidentesPage() {
             </div>
             {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
             <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button type="button" variant="outline" className="flex-1" onClick={cerrarModal}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Guardando...' : 'Crear'}</Button>
             </div>
           </form>
+        )}
       </Modal>
     </div>
   )

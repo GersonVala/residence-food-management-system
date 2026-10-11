@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
+import { PasswordTemporal } from '@/components/ui/password-temporal'
 import { EmptyState } from '@/components/ui/empty-state'
-import { UserCog, Copy, Check } from 'lucide-react'
+import { UserCog } from 'lucide-react'
 
 interface Residencia {
   id: number
@@ -39,7 +40,6 @@ export default function VoluntariosPage() {
   const [createSaving, setCreateSaving] = useState(false)
   const [createError, setCreateError] = useState('')
   const [passwordTemporal, setPasswordTemporal] = useState('')
-  const [copied, setCopied] = useState(false)
 
   // Modal editar
   const [editOpen, setEditOpen] = useState(false)
@@ -119,12 +119,6 @@ export default function VoluntariosPage() {
   async function handleActivar(u: UsuarioAdmin) {
     await api.patch(`/usuarios/${u.id}`, { active: true })
     load()
-  }
-
-  function copyPassword() {
-    navigator.clipboard.writeText(passwordTemporal)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   function closeCreateModal() {
@@ -214,18 +208,7 @@ export default function VoluntariosPage() {
       {/* Modal crear */}
       <Modal open={createOpen} onClose={closeCreateModal} title="Nuevo usuario administrativo">
         {passwordTemporal ? (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Usuario creado exitosamente. Compartí esta contraseña temporal — <strong>no se va a mostrar de nuevo</strong>.
-            </p>
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
-              <code className="flex-1 text-base font-mono text-gray-900">{passwordTemporal}</code>
-              <button onClick={copyPassword} className="text-gray-400 hover:text-purple-600 transition-colors">
-                {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-              </button>
-            </div>
-            <Button className="w-full" onClick={closeCreateModal}>Listo</Button>
-          </div>
+          <PasswordTemporal password={passwordTemporal} destinatario="a la persona" onClose={closeCreateModal} />
         ) : (
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="space-y-1">
