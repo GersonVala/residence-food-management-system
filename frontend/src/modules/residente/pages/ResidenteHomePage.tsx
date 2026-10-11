@@ -3,6 +3,8 @@ import { api } from '@/lib/api'
 import { decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { DeshacerSeleccion } from '../components/DeshacerSeleccion'
+import { calcularCantidad, calcularMaxPersonas } from '@/lib/recetas'
 import {
   ChefHat, Users, CalendarDays, UtensilsCrossed, Clock,
   CheckCircle2, BookOpen, AlertCircle, PartyPopper, AlertTriangle, PackageX,
@@ -85,6 +87,7 @@ interface AlimentoBasico {
 interface Seleccion {
   id: number
   estado: 'PENDIENTE' | 'CONFIRMADO' | 'REVERTIDO'
+  rollback_deadline: string | null
   personas: number
   menu: Menu
   residente: { id: number }
@@ -178,6 +181,15 @@ export default function ResidenteHomePage() {
   const turnosProximos = misTurnos.filter(t => !isTurnoHoy(t) && t.tipo === 'ROTATIVO' && t.fecha)
     .sort((a, b) => (a.fecha! > b.fecha! ? 1 : -1))
     .slice(0, 3)
+
+  async function recargarTurnosYStock() {
+    const [ts, st] = await Promise.all([
+      api.get<Turno[]>(`/residencias/${residenciaId}/turnos`),
+      api.get<StockItem[]>(`/residencias/${residenciaId}/stock`),
+    ])
+    setTurnos(ts)
+    setStock(st)
+  }
 
   async function termineDecocinar(seleccion_id: number, ajustes?: { alimento_id: number; cantidad: number }[]) {
     setConfirmando(seleccion_id)
@@ -281,22 +293,21 @@ export default function ResidenteHomePage() {
   }, [stock])
 
   function calcularNecesario(ing: Ingrediente, personas: number, base: number): number {
-    return Math.round((ing.cantidad_base * (personas / base) + ing.cantidad_por_persona * personas) * 100) / 100
+    return calcularCantidad(ing.cantidad_base, personas, base)
   }
 
   function formatCantidad(cantidad: number, unidad: string): string {
     return unidad.toLowerCase() === 'unidades' ? `${cantidad} u.` : `${cantidad} ${unidad.toLowerCase()}`
   }
 
-  function calcularMaxPersonasPorStock(ingredientes: Ingrediente[]): number {
-    let max = 999
-    for (const ing of ingredientes) {
-      if (ing.cantidad_por_persona <= 0) continue
-      const enStock = stockPorAlimento.get(ing.alimento.id) ?? 0
-      const posibles = Math.floor((enStock - ing.cantidad_base) / ing.cantidad_por_persona)
-      if (posibles < max) max = Math.max(0, posibles)
-    }
-    return max === 999 ? 200 : max
+  function calcularMaxPersonasPorStock(ingredientes: Ingrediente[], personasBase: number): number {
+    return calcularMaxPersonas(
+      ingredientes.map(ing => ({
+        cantidad_base: ing.cantidad_base,
+        disponible: stockPorAlimento.get(ing.alimento.id) ?? 0,
+      })),
+      personasBase,
+    )
   }
 
   if (loading) {
@@ -466,6 +477,14 @@ export default function ResidenteHomePage() {
                           )}
                         </div>
 
+                        {miaSel.estado === 'CONFIRMADO' && (
+                          <DeshacerSeleccion
+                            seleccionId={miaSel.id}
+                            rollbackDeadline={miaSel.rollback_deadline}
+                            onReverted={recargarTurnosYStock}
+                          />
+                        )}
+
                         {/* Receta completa — solo en PENDIENTE (la pantalla de cocina) */}
                         {miaSel.estado === 'PENDIENTE' && (() => {
                           const menuData = menus.find(m => m.id === miaSel.menu.id)
@@ -555,7 +574,7 @@ export default function ResidenteHomePage() {
 
                           {(() => {
                             const menuSel2 = selMenuId ? menus.find(m => m.id === selMenuId) : null
-                            const maxPersonas = menuSel2 ? calcularMaxPersonasPorStock(menuSel2.ingredientes) : 200
+                            const maxPersonas = menuSel2 ? calcularMaxPersonasPorStock(menuSel2.ingredientes, menuSel2.personas_base) : 200
                             return (
                               <div className="flex items-center gap-3 flex-wrap">
                                 <label className="text-xs font-medium text-gray-600">Personas:</label>
