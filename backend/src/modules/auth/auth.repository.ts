@@ -1,5 +1,5 @@
 import { prisma } from "../../shared/prisma/client.js";
-import type { User } from "@prisma/client";
+import type { User, Residente } from "@prisma/client";
 
 export const authRepository = {
   /**
@@ -14,6 +14,18 @@ export const authRepository = {
    */
   async findById(id: number): Promise<User | null> {
     return prisma.user.findUnique({ where: { id } });
+  },
+
+  /**
+   * Busca un usuario por id junto con la residencia de su residente (si lo es).
+   */
+  async findByIdConResidente(
+    id: number
+  ): Promise<(User & { residente: Pick<Residente, "residencia_id"> | null }) | null> {
+    return prisma.user.findUnique({
+      where: { id },
+      include: { residente: { select: { residencia_id: true } } },
+    });
   },
 
   /**

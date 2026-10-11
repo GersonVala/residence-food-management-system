@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { residentesRepository, type CreateResidenteData, type UpdateResidenteData, type ResidenteListado, type ResidenteDetalle } from "./residentes.repository.js";
 import { residenciasRepository } from "../residencias/residencias.repository.js";
+import { generarPasswordTemporal } from "../../shared/utils/password.js";
 import type { Residente } from "@prisma/client";
 
 
@@ -36,7 +37,7 @@ export const residentesService = {
     return residente;
   },
 
-  async crear(data: CreateResidenteData): Promise<Residente> {
+  async crear(data: CreateResidenteData): Promise<Residente & { password_temporal: string }> {
     const residencia = await residenciasRepository.findById(data.residencia_id);
     if (!residencia || !residencia.activo) {
       throw Object.assign(new Error("Residencia no encontrada"), {
@@ -52,8 +53,11 @@ export const residentesService = {
     const emailExistente = await residentesRepository.findByEmail(data.email);
     if (emailExistente) conflict("Ya existe un usuario con ese email");
 
-    const password_hash = await bcrypt.hash(data.dni, 10);
-    return residentesRepository.create(data, password_hash);
+    // Contraseña temporal aleatoria (nunca el DNI): se devuelve una sola vez al admin.
+    const password_temporal = generarPasswordTemporal();
+    const password_hash = await bcrypt.hash(password_temporal, 10);
+    const residente = await residentesRepository.create(data, password_hash);
+    return { ...residente, password_temporal };
   },
 
   async actualizar(id: number, data: UpdateResidenteData): Promise<ResidenteDetalle> {

@@ -348,3 +348,227 @@ describe("Rutas protegidas sin token", () => {
     expect(res.body).not.toHaveProperty("password_hash");
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /auth/reset — alcance por rol y residencia
+// ---------------------------------------------------------------------------
+
+async function crearResidencia(nombre: string) {
+  return prisma.residencia.create({
+    data: {
+      nombre,
+      direccion: "Av. Test 123",
+      ciudad: "Buenos Aires",
+      provincia: "Buenos Aires",
+      capacidad_max: 30,
+    },
+  });
+}
+
+async function crearResidenteEn(residencia_id: number, email: string) {
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password_hash: await bcrypt.hash("password123", 10),
+      role: "RESIDENTE",
+      first_login: false,
+      residencia_id,
+    },
+  });
+  await prisma.residente.create({
+    data: {
+      user_id: user.id,
+      residencia_id,
+      nombre: "Juan",
+      apellido: "Pérez",
+      dni: `dni-${email}`,
+      edad: 22,
+      universidad: "UBA",
+      carrera: "Ingeniería",
+      ciudad_origen: "Córdoba",
+      provincia_origen: "Córdoba",
+      fecha_ingreso: new Date("2024-03-01"),
+    },
+  });
+  return user;
+}
+
+async function crearAdminDeResidencia(email: string, residencia_id: number) {
+  const admin = await crearUsuario({ email, role: "ADMIN_RESIDENCIA" });
+  return prisma.user.update({ where: { id: admin.id }, data: { residencia_id } });
+}
+
+async function tokenDe(email: string): Promise<string> {
+  const res = await supertest(app.server)
+    .post("/auth/login")
+    .send({ email, password: "password123" });
+  return res.body.token as string;
+}
+
+async function resetear(token: string, user_id: number) {
+  return supertest(app.server)
+    .post("/auth/reset")
+    .set("Authorization", `Bearer ${token}`)
+    .send({ user_id });
+}
+
+describe("POST /auth/reset — alcance por rol", () => {
+  it("ADMIN_RESIDENCIA resetea a un residente de su propia residencia", async () => {
+    const res1 = await crearResidencia("Res 1");
+    await crearAdminDeResidencia("admin1@f.com", res1.id);
+    const residente = await crearResidenteEn(res1.id, "res@f.com");
+
+    const r = await resetear(await tokenDe("admin1@f.com"), residente.id);
+
+    expect(r.status).toBe(200);
+    expect(r.body.password_temporal).toHaveLength(10);
+    const actualizado = await prisma.user.findUnique({ where: { id: residente.id } });
+    expect(actualizado?.first_login).toBe(true);
+  });
+
+  it("ADMIN_RESIDENCIA no puede resetear a un ADMIN_GLOBAL", async () => {
+    const res1 = await crearResidencia("Res 1");
+    await crearAdminDeResidencia("admin1@f.com", res1.id);
+    const global = await crearUsuario({ email: "global@f.com", role: "ADMIN_GLOBAL" });
+
+    const r = await resetear(await tokenDe("admin1@f.com"), global.id);
+
+    expect(r.status).toBe(403);
+    expect(r.body).not.toHaveProperty("password_temporal");
+  });
+
+  it("ADMIN_RESIDENCIA no puede resetear a otro ADMIN_RESIDENCIA", async () => {
+    const res1 = await crearResidencia("Res 1");
+    await crearAdminDeResidencia("admin1@f.com", res1.id);
+    const otro = await crearAdminDeResidencia("admin2@f.com", res1.id);
+
+    const r = await resetear(await tokenDe("admin1@f.com"), otro.id);
+
+    expect(r.status).toBe(403);
+  });
+
+  it("ADMIN_RESIDENCIA no puede resetear a un residente de otra residencia", async () => {
+    const res1 = await crearResidencia("Res 1");
+    const res2 = await crearResidencia("Res 2");
+    await crearAdminDeResidencia("admin1@f.com", res1.id);
+    const ajeno = await crearResidenteEn(res2.id, "ajeno@f.com");
+
+    const r = await resetear(await tokenDe("admin1@f.com"), ajeno.id);
+
+    expect(r.status).toBe(403);
+    const intacto = await prisma.user.findUnique({ where: { id: ajeno.id } });
+    expect(intacto?.first_login).toBe(false);
+  });
+
+  it("ADMIN_GLOBAL puede resetear a un administrador", async () => {
+    await crearUsuario({ email: "global@f.com", role: "ADMIN_GLOBAL" });
+    const adminRes = await crearUsuario({ email: "admin1@f.com", role: "ADMIN_RESIDENCIA" });
+
+    const r = await resetear(await tokenDe("global@f.com"), adminRes.id);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toHaveProperty("password_temporal");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cambio de contraseña obligatorio en el primer login (enforcement server-side)
+// ---------------------------------------------------------------------------
+
+describe("Primer login: cambio de contraseña obligatorio", () => {
+  it("bloquea rutas protegidas con 403 CAMBIO_PASSWORD_REQUERIDO", async () => {
+    await crearUsuario({ email: "nuevo@f.com", role: "ADMIN_GLOBAL", first_login: true });
+    const token = await tokenDe("nuevo@f.com");
+
+    const res = await supertest(app.server)
+      .get("/residencias")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("CAMBIO_PASSWORD_REQUERIDO");
+  });
+
+  it("permite GET /auth/me y POST /auth/change-password", async () => {
+    await crearUsuario({ email: "nuevo@f.com", role: "ADMIN_GLOBAL", first_login: true });
+    const token = await tokenDe("nuevo@f.com");
+
+    const me = await supertest(app.server).get("/auth/me").set("Authorization", `Bearer ${token}`);
+    expect(me.status).toBe(200);
+
+    const cambio = await supertest(app.server)
+      .post("/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ password_actual: "password123", password_nuevo: "nueva456" });
+    expect(cambio.status).toBe(200);
+  });
+
+  it("después de cambiar la contraseña el mismo token ya accede a rutas protegidas", async () => {
+    await crearUsuario({ email: "nuevo@f.com", role: "ADMIN_GLOBAL", first_login: true });
+    const token = await tokenDe("nuevo@f.com");
+
+    await supertest(app.server)
+      .post("/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ password_actual: "password123", password_nuevo: "nueva456" });
+
+    const res = await supertest(app.server)
+      .get("/residencias")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+  });
+
+  it("un token viejo queda bloqueado si first_login vuelve a true (se chequea la DB, no el token)", async () => {
+    const usuario = await crearUsuario({ email: "u@f.com", role: "ADMIN_GLOBAL", first_login: false });
+    const tokenViejo = await tokenDe("u@f.com");
+
+    await prisma.user.update({ where: { id: usuario.id }, data: { first_login: true } });
+
+    const res = await supertest(app.server)
+      .get("/residencias")
+      .set("Authorization", `Bearer ${tokenViejo}`);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("CAMBIO_PASSWORD_REQUERIDO");
+  });
+
+  it("rechaza con 401 un token de un usuario que ya no existe", async () => {
+    const usuario = await crearUsuario({ email: "u@f.com", role: "ADMIN_GLOBAL" });
+    const token = await tokenDe("u@f.com");
+    await prisma.user.delete({ where: { id: usuario.id } });
+
+    const res = await supertest(app.server)
+      .get("/residencias")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rate limit de login
+// ---------------------------------------------------------------------------
+
+describe("POST /auth/login — rate limit", () => {
+  it("el 6º intento en un minuto devuelve 429", async () => {
+    await crearUsuario({ email: "victima@f.com" });
+    const intentar = () =>
+      supertest(app.server).post("/auth/login").send({ email: "victima@f.com", password: "mal" });
+
+    for (let i = 0; i < 5; i++) {
+      expect((await intentar()).status).toBe(401);
+    }
+    const sexto = await intentar();
+    expect(sexto.status).toBe(429);
+    expect(sexto.body.mensaje).toMatch(/intentos/i);
+  });
+
+  it("el límite es por email: otro email no queda bloqueado", async () => {
+    await crearUsuario({ email: "a@f.com" });
+    await crearUsuario({ email: "b@f.com" });
+    for (let i = 0; i < 6; i++) {
+      await supertest(app.server).post("/auth/login").send({ email: "a@f.com", password: "mal" });
+    }
+    const res = await supertest(app.server)
+      .post("/auth/login")
+      .send({ email: "b@f.com", password: "password123" });
+    expect(res.status).toBe(200);
+  });
+});

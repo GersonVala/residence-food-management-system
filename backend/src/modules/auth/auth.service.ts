@@ -1,6 +1,8 @@
 import bcrypt from "bcrypt";
 import type { FastifyInstance } from "fastify";
 import { authRepository } from "./auth.repository.js";
+import { generarPasswordTemporal } from "../../shared/utils/password.js";
+import type { JwtPayload } from "../../shared/middlewares/auth.middleware.js";
 
 const SALT_ROUNDS = 10;
 const MIN_PASSWORD_LENGTH = 6;
@@ -94,12 +96,33 @@ export const authService = {
 
   /**
    * Resetea la contraseña de un usuario (acción de admin).
+   * - ADMIN_GLOBAL puede resetear a cualquiera.
+   * - ADMIN_RESIDENCIA solo a RESIDENTES de su propia residencia (403 si no).
    * Genera una contraseña temporal aleatoria y marca first_login = true.
    */
-  async resetPassword(targetUserId: number): Promise<ResetResult> {
-    const usuario = await authRepository.findById(targetUserId);
+  async resetPassword(
+    actor: Pick<JwtPayload, "role" | "residencia_id">,
+    targetUserId: number
+  ): Promise<ResetResult> {
+    const usuario = await authRepository.findByIdConResidente(targetUserId);
     if (!usuario) {
       throw { statusCode: 404, error: "No encontrado", mensaje: "Usuario no encontrado" };
+    }
+
+    if (actor.role !== "ADMIN_GLOBAL") {
+      const esResidenteDeSuResidencia =
+        usuario.role === "RESIDENTE" &&
+        usuario.residente !== null &&
+        actor.residencia_id !== null &&
+        usuario.residente.residencia_id === actor.residencia_id;
+
+      if (!esResidenteDeSuResidencia) {
+        throw {
+          statusCode: 403,
+          error: "Acceso prohibido",
+          mensaje: "Solo podés resetear la contraseña de residentes de tu residencia",
+        };
+      }
     }
 
     const passwordTemporal = generarPasswordTemporal();
@@ -110,17 +133,3 @@ export const authService = {
     return { password_temporal: passwordTemporal };
   },
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function generarPasswordTemporal(): string {
-  // 12 caracteres alfanuméricos
-  const chars = "ABCDEFGHJKMNPQRSTWXYZabcdefghjkmnpqrstwxyz23456789";
-  let result = "";
-  for (let i = 0; i < 12; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}

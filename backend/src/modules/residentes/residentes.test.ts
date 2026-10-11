@@ -136,6 +136,32 @@ describe("POST /residencias/:residencia_id/residentes", () => {
     expect(user?.first_login).toBe(true);
   });
 
+  it("devuelve una contraseña temporal aleatoria (no el DNI) con la que el residente puede entrar", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send(residenteBase);
+
+    expect(res.status).toBe(201);
+    expect(res.body.password_temporal).toHaveLength(10);
+    expect(res.body.password_temporal).not.toBe(residenteBase.dni);
+
+    const conDni = await supertest(app.server)
+      .post("/auth/login")
+      .send({ email: residenteBase.email, password: residenteBase.dni });
+    expect(conDni.status).toBe(401);
+
+    const conTemporal = await supertest(app.server)
+      .post("/auth/login")
+      .send({ email: residenteBase.email, password: res.body.password_temporal });
+    expect(conTemporal.status).toBe(200);
+    expect(conTemporal.body.primer_login).toBe(true);
+  });
+
   it("retorna 409 si el DNI ya existe", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
