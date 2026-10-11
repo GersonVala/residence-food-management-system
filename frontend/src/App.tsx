@@ -29,8 +29,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Fuera de AppLayout: sin sidebar, el usuario con cambio de contraseña pendiente no puede navegar a otro lado */}
+      <Route path="/change-password" element={<ChangePasswordPage />} />
       <Route element={<AppLayout />}>
-        <Route path="/change-password" element={<ChangePasswordPage />} />
         {/* Admin routes */}
         <Route element={<RequireRole roles={['ADMIN_GLOBAL', 'ADMIN_RESIDENCIA']} />}>
           <Route path="/dashboard" element={<DashboardPage />} />
