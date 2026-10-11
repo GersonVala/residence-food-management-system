@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
+import { PasswordTemporal } from '@/components/ui/password-temporal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Users, Eye, Search, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
@@ -36,6 +37,12 @@ interface Residente {
   user?: { email: string }
 }
 
+interface ResidenciaOpcion {
+  id: number
+  nombre: string
+  ciudad: string
+}
+
 export default function ResidentesPage() {
   const navigate = useNavigate()
   const token = getToken()
@@ -50,10 +57,12 @@ export default function ResidentesPage() {
   const [form, setForm] = useState({
     email: '', nombre: '', apellido: '', dni: '', edad: '',
     telefono: '', universidad: '', carrera: '',
-    ciudad_origen: '', provincia_origen: '', fecha_ingreso: ''
+    ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: ''
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [credencial, setCredencial] = useState<{ email: string; password: string } | null>(null)
+  const [residenciasActivas, setResidenciasActivas] = useState<ResidenciaOpcion[]>([])
 
   // Filtros
   const [busqueda, setBusqueda] = useState('')
@@ -76,6 +85,13 @@ export default function ResidentesPage() {
   }
 
   useEffect(load, [isAdminGlobal, residenciaId])
+
+  useEffect(() => {
+    if (!isAdminGlobal) return
+    api.get<ResidenciaOpcion[]>('/residencias')
+      .then(rs => setResidenciasActivas(rs.filter((r: ResidenciaOpcion & { activo?: boolean }) => r.activo !== false)))
+      .catch(() => {})
+  }, [isAdminGlobal])
 
   // Opciones únicas para selects
   const residenciasOpciones = useMemo(() =>
@@ -119,9 +135,19 @@ export default function ResidentesPage() {
     setFiltroEstado('todos')
   }
 
+  function cerrarModal() {
+    setModalOpen(false)
+    setCredencial(null)
+    setError('')
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!residenciaId) return
+    const targetResidenciaId = isAdminGlobal ? form.residencia_id : residenciaId
+    if (!targetResidenciaId) {
+      setError('Seleccioná una residencia.')
+      return
+    }
     if (!form.provincia_origen) {
       setError('Seleccioná una provincia de origen.')
       return
@@ -129,13 +155,21 @@ export default function ResidentesPage() {
     setSaving(true)
     setError('')
     try {
-      await api.post(`/residencias/${residenciaId}/residentes`, {
-        ...form,
+      const creado = await api.post<{ password_temporal: string }>(`/residencias/${targetResidenciaId}/residentes`, {
+        email: form.email,
+        nombre: form.nombre,
+        apellido: form.apellido,
+        dni: form.dni,
         edad: Number(form.edad),
+        telefono: form.telefono,
+        universidad: form.universidad,
+        carrera: form.carrera,
+        ciudad_origen: form.ciudad_origen,
+        provincia_origen: form.provincia_origen,
         fecha_ingreso: new Date(form.fecha_ingreso).toISOString()
       })
-      setModalOpen(false)
-      setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '' })
+      setCredencial({ email: form.email, password: creado.password_temporal })
+      setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: '' })
       load()
     } catch (err: unknown) {
       const e = err as { mensaje?: string; message?: string }
@@ -165,9 +199,7 @@ export default function ResidentesPage() {
             </p>
           )}
         </div>
-        {!isAdminGlobal && (
-          <Button onClick={() => setModalOpen(true)}>Nuevo residente</Button>
-        )}
+        <Button onClick={() => setModalOpen(true)}>Nuevo residente</Button>
       </div>
 
       {/* Buscador y filtros */}
@@ -338,9 +370,31 @@ export default function ResidentesPage() {
       )}
 
       {/* Modal crear residente */}
-      {!isAdminGlobal && (
-        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo residente">
+      <Modal open={modalOpen} onClose={cerrarModal} title={credencial ? 'Residente creado' : 'Nuevo residente'}>
+        {credencial ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">Contraseña temporal de <strong>{credencial.email}</strong>:</p>
+            <PasswordTemporal password={credencial.password} destinatario="al residente" onClose={cerrarModal} />
+          </div>
+        ) : (
           <form onSubmit={handleCreate} className="space-y-3">
+            {isAdminGlobal && (
+              <div className="space-y-1">
+                <Label htmlFor="residencia_id">Residencia</Label>
+                <select
+                  id="residencia_id"
+                  value={form.residencia_id}
+                  onChange={e => setForm(f => ({ ...f, residencia_id: e.target.value }))}
+                  required
+                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Seleccioná una residencia</option>
+                  {residenciasActivas.map(r => (
+                    <option key={r.id} value={String(r.id)}>{r.nombre} — {r.ciudad}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {[
               { id: 'nombre', label: 'Nombre', type: 'text' },
               { id: 'apellido', label: 'Apellido', type: 'text' },
@@ -381,12 +435,12 @@ export default function ResidentesPage() {
             </div>
             {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
             <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button type="button" variant="outline" className="flex-1" onClick={cerrarModal}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Guardando...' : 'Crear'}</Button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }

@@ -323,7 +323,7 @@ model SeleccionMenu {
   personas         Int
   nota             String?
   estado           EstadoSeleccion @default(PENDIENTE)
-  rollback_deadline DateTime
+  rollback_deadline DateTime? // se fija al confirmar: confirmación + rollback_horas
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
 

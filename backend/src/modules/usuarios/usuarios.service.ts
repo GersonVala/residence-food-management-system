@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { usuariosRepository, type UsuarioAdmin } from "./usuarios.repository.js";
 import { residenciasRepository } from "../residencias/residencias.repository.js";
+import { generarPasswordTemporal } from "../../shared/utils/password.js";
 import type { Role } from "@prisma/client";
 
 function notFound(): never {
@@ -17,15 +18,6 @@ function conflict(mensaje: string): never {
     error: "Conflict",
     mensaje,
   });
-}
-
-function generarPasswordTemporal(): string {
-  const chars = "ABCDEFGHJKMNPQRSTWXYZabcdefghjkmnpqrstwxyz23456789";
-  let result = "";
-  for (let i = 0; i < 12; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
 }
 
 export const usuariosService = {

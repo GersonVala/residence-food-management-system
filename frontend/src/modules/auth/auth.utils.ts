@@ -19,6 +19,13 @@ export function decodeToken(token: string): { id: number; email: string; role: s
   }
 }
 
+/** El backend exige cambiar la contraseña (primer login o reset): se lleva al usuario a esa pantalla. */
+export function irACambioPassword(): void {
+  if (window.location.pathname !== '/change-password') {
+    window.location.assign('/change-password')
+  }
+}
+
 export function isAuthenticated(): boolean {
   const token = getToken()
   if (!token) return false

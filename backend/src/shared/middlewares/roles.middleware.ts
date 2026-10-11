@@ -31,33 +31,3 @@ export function requireRoles(...roles: Role[]) {
     }
   };
 }
-
-/**
- * Verifica que el usuario pertenece a la residencia indicada,
- * o que es ADMIN_GLOBAL (acceso irrestricto).
- */
-export function requireResidencia(residenciaId: number) {
-  return async function residenciaMiddleware(
-    request: FastifyRequest,
-    reply: FastifyReply
-  ): Promise<void> {
-    const usuario = request.usuario;
-
-    if (!usuario) {
-      reply.status(401).send({
-        error: "No autorizado",
-        mensaje: "Autenticación requerida",
-      });
-      return;
-    }
-
-    if (usuario.role === "ADMIN_GLOBAL") return;
-
-    if (usuario.residencia_id !== residenciaId) {
-      reply.status(403).send({
-        error: "Acceso prohibido",
-        mensaje: "No tenés acceso a esta residencia",
-      });
-    }
-  };
-}

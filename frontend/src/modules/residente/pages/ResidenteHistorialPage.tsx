@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { EmptyState } from '@/components/ui/empty-state'
+import { DeshacerSeleccion } from '../components/DeshacerSeleccion'
 import { History, ChevronDown, ChevronUp, CheckCircle2, Clock, RotateCcw, Hourglass } from 'lucide-react'
 
 type EstadoSeleccion = 'PENDIENTE' | 'CONFIRMADO' | 'REVERTIDO'
@@ -21,7 +22,7 @@ interface Seleccion {
   nota: string | null
   estado: EstadoSeleccion
   created_at: string
-  rollback_deadline: string
+  rollback_deadline: string | null
   menu: {
     id: number
     nombre: string
@@ -82,11 +83,18 @@ export default function ResidenteHistorialPage() {
   const [expanded, setExpanded] = useState<number | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<EstadoSeleccion | ''>('')
 
+  async function cargar() {
+    try {
+      setSelecciones(await api.get<Seleccion[]>('/me/selecciones'))
+    } catch {
+      // se mantiene lo que ya había en pantalla
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    api.get<Seleccion[]>('/me/selecciones')
-      .then(setSelecciones)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    cargar()
   }, [])
 
   const visibles = filtroEstado
@@ -187,6 +195,14 @@ export default function ResidenteHistorialPage() {
                     </div>
                   </div>
                 </button>
+
+                {sel.estado === 'CONFIRMADO' && (
+                  <DeshacerSeleccion
+                    seleccionId={sel.id}
+                    rollbackDeadline={sel.rollback_deadline}
+                    onReverted={cargar}
+                  />
+                )}
 
                 {abierto && (
                   <div className="border-t border-gray-100 p-4 space-y-4 bg-gray-50">

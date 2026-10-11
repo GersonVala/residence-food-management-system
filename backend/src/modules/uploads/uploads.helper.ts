@@ -7,7 +7,7 @@ import type { MultipartFile } from "@fastify/multipart";
 // Constantes
 // ============================================================
 
-export const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — único límite de subida (también lo usa @fastify/multipart)
 
 export const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
@@ -56,7 +56,7 @@ export async function saveUpload({ file, subfolder = "" }: SaveUploadOptions): P
     const err = Object.assign(new Error("Archivo demasiado grande"), {
       statusCode: 413,
       error: "Payload Too Large",
-      mensaje: "El archivo supera el límite de 5 MB",
+      mensaje: `El archivo supera el límite de ${MAX_BYTES / (1024 * 1024)} MB`,
     });
     throw err;
   }

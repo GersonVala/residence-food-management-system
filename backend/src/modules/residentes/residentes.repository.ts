@@ -117,7 +117,7 @@ export const residentesRepository = {
   },
 
   // T-2.4: Wrap update in a transaction to mirror residencia_id to User when provided
-  async update(id: number, data: UpdateResidenteData): Promise<Residente> {
+  async update(id: number, data: UpdateResidenteData) {
     return prisma.$transaction(async (tx) => {
       const residente = await tx.residente.update({
         where: { id },
@@ -131,8 +131,14 @@ export const residentesRepository = {
         });
       }
 
-      return residente;
-    });
+      return tx.residente.findUniqueOrThrow({
+        where: { id },
+        include: {
+          residencia: { select: { id: true, nombre: true, ciudad: true, provincia: true } },
+          user: { select: { email: true, puede_cargar_stock: true } },
+        },
+      });
+    }) as Promise<Residente & { residencia: Pick<Residencia, 'id' | 'nombre' | 'ciudad' | 'provincia'>; user: { email: string; puede_cargar_stock: boolean } }>;
   },
 
   // T-2.5: Atomic soft delete — sets both Residente.activo and User.active to false

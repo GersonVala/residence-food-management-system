@@ -70,6 +70,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await prisma.residenciaFoto.deleteMany();
+  await prisma.seleccionAjuste.deleteMany();
   await prisma.seleccionMenu.deleteMany();
   await prisma.movimientoStock.deleteMany();
   await prisma.stock.deleteMany();

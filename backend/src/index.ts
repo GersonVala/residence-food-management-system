@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { residenciasRoutes } from "./modules/residencias/residencias.routes.js";
 import { residentesRoutes } from "./modules/residentes/residentes.routes.js";
@@ -16,15 +17,22 @@ import { uploadsRoutes } from "./modules/uploads/uploads.routes.js";
 import { historialRoutes } from "./modules/historial/historial.routes.js";
 import { usuariosRoutes } from "./modules/usuarios/usuarios.routes.js";
 import { analyticsRoutes } from "./modules/analytics/analytics.routes.js";
+import { MAX_BYTES } from "./modules/uploads/uploads.helper.js";
+import { resolveJwtSecret, resolveFrontendUrl } from "./shared/config.js";
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || "0.0.0.0";
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-prod";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+// En producción lanzan error si faltan o son inseguros (ver shared/config.ts)
+const JWT_SECRET = resolveJwtSecret(process.env);
+const FRONTEND_URL = resolveFrontendUrl(process.env);
 
 const isTest = process.env.NODE_ENV === "test";
 
 export const app = Fastify({
+  // En producción (Railway) hay un proxy delante: sin trustProxy request.ip sería
+  // siempre la IP del proxy y el rate limit bloquearía a todos juntos. Solo se
+  // activa en producción para que en local nadie pueda falsear X-Forwarded-For.
+  trustProxy: process.env.NODE_ENV === "production",
   logger: isTest
     ? false
     : {
@@ -50,9 +58,13 @@ await app.register(jwt, {
   sign: { expiresIn: '7d' },
 });
 
+// global: false → solo aplica a las rutas que declaran config.rateLimit (login/reset).
+// hook preHandler: corre después de parsear el body, así la clave puede incluir el email.
+await app.register(rateLimit, { global: false, hook: "preHandler" });
+
 await app.register(multipart, {
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB
+    fileSize: MAX_BYTES,
   },
 });
 

@@ -58,3 +58,6 @@ RECOMENDACION.md
 
 # Test files env
 backend/.env.test
+
+# Credenciales locales
+claves.txt

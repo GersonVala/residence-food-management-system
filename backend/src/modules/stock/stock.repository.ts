@@ -144,8 +144,4 @@ export const stockRepository = {
       },
     });
   },
-
-  createMovimiento(data: CreateMovimientoInput) {
-    return prisma.movimientoStock.create({ data });
-  },
 };

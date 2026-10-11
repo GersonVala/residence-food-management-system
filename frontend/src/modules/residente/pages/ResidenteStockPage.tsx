@@ -12,6 +12,14 @@ interface Categoria { id: number; nombre: string }
 const UNIDADES = ['KG', 'GR', 'LITROS', 'ML', 'UNIDADES'] as const
 type Unidad = typeof UNIDADES[number]
 
+const UNIDAD_LABEL: Record<Unidad, string> = {
+  KG: 'Kilogramos',
+  GR: 'Gramos',
+  LITROS: 'Litros',
+  ML: 'Mililitros',
+  UNIDADES: 'Por pieza (ej: huevos, latas)',
+}
+
 interface Alimento {
   id: number
   nombre: string
@@ -87,6 +95,7 @@ export default function ResidenteStockPage() {
 
   const [expandedAlimentoId, setExpandedAlimentoId] = useState<number | null>(null)
   const [alimentos, setAlimentos] = useState<Alimento[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [loadingMovimientos, setLoadingMovimientos] = useState(false)
 
@@ -98,6 +107,14 @@ export default function ResidenteStockPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Sub-formulario inline: crear o editar alimento
+  const [creandoAlimento, setCreandoAlimento] = useState(false)
+  const [editandoAlimentoId, setEditandoAlimentoId] = useState<number | null>(null)
+  const [nuevoAlimento, setNuevoAlimento] = useState({ nombre: '', marca: '', unidad_base: 'KG' as Unidad, categoria_id: '', contenido_neto: '', unidad_contenido: 'GR' as Unidad })
+  const [tienePaquete, setTienePaquete] = useState(false)
+  const [creandoSaving, setCreandoSaving] = useState(false)
+  const [creandoError, setCreandoError] = useState('')
+
   useEffect(() => {
     if (!residenciaId) return
     Promise.all([
@@ -108,6 +125,7 @@ export default function ResidenteStockPage() {
       setPuedeCargar(me.user.puede_cargar_stock)
       if (me.user.puede_cargar_stock) {
         api.get<Alimento[]>('/alimentos').then(setAlimentos).catch(() => {})
+        api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {})
         setLoadingMovimientos(true)
         api.get<Movimiento[]>('/me/movimientos')
           .then(setMovimientos)
@@ -165,12 +183,67 @@ export default function ResidenteStockPage() {
     })
     setTieneVencimiento(false)
     setError('')
+    setCreandoAlimento(false)
+    setEditandoAlimentoId(null)
+    setNuevoAlimento({ nombre: '', marca: '', unidad_base: 'KG', categoria_id: '', contenido_neto: '', unidad_contenido: 'GR' })
+    setTienePaquete(false)
+    setCreandoError('')
     setModalOpen(true)
+  }
+
+  function abrirEdicion(al: Alimento) {
+    setEditandoAlimentoId(al.id)
+    setCreandoAlimento(true)
+    setCreandoError('')
+    setNuevoAlimento({
+      nombre: al.nombre,
+      marca: al.marca ?? '',
+      unidad_base: al.unidad_base as Unidad,
+      categoria_id: String(al.categoria.id),
+      contenido_neto: al.contenido_neto != null ? String(al.contenido_neto) : '',
+      unidad_contenido: (al.unidad_contenido as Unidad) ?? 'GR',
+    })
+    setTienePaquete(al.contenido_neto != null)
+  }
+
+  async function handleCrearAlimento(e: React.FormEvent) {
+    e.preventDefault()
+    setCreandoSaving(true)
+    setCreandoError('')
+    try {
+      const body = {
+        nombre: nuevoAlimento.nombre,
+        marca: nuevoAlimento.marca || undefined,
+        unidad_base: nuevoAlimento.unidad_base,
+        categoria_id: Number(nuevoAlimento.categoria_id),
+        ...(tienePaquete
+          ? { contenido_neto: Number(nuevoAlimento.contenido_neto), unidad_contenido: nuevoAlimento.unidad_contenido }
+          : {}),
+      }
+      const al = editandoAlimentoId
+        ? await api.patch<Alimento>(`/alimentos/${editandoAlimentoId}`, body)
+        : await api.post<Alimento>('/alimentos', body)
+
+      setAlimentos(prev =>
+        editandoAlimentoId
+          ? prev.map(a => a.id === al.id ? al : a)
+          : [...prev, al]
+      )
+      setAlimentoSel(al)
+      setForm(f => ({ ...f, alimento_id: String(al.id), unidad: al.unidad_base as Unidad }))
+      setCreandoAlimento(false)
+      setEditandoAlimentoId(null)
+    } catch (err: unknown) {
+      const e = err as { mensaje?: string }
+      setCreandoError(e.mensaje ?? (editandoAlimentoId ? 'Error al editar el alimento.' : 'Error al crear el alimento.'))
+    } finally {
+      setCreandoSaving(false)
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!residenciaId) return
+    if (!residenciaId || creandoAlimento) return
     setSaving(true)
     setError('')
     try {
@@ -229,38 +302,165 @@ export default function ResidenteStockPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-600">Alimento <span className="text-red-400">*</span></Label>
-                <select
-                  value={form.alimento_id}
-                  onChange={e => {
-                    const al = alimentos.find(a => a.id === Number(e.target.value)) ?? null
-                    setAlimentoSel(al)
-                    setForm(f => ({ ...f, alimento_id: e.target.value, unidad: (al?.unidad_base as Unidad) ?? 'UNIDADES' }))
-                  }}
-                  required
-                  className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="">Seleccioná un alimento</option>
-                  {alimentos.map(a => (
-                    <option key={a.id} value={a.id}>{a.nombre}{a.marca ? ` — ${a.marca}` : ''}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={creandoAlimento ? '__nuevo__' : form.alimento_id}
+                    onChange={e => {
+                      if (e.target.value === '__nuevo__') {
+                        setEditandoAlimentoId(null)
+                        setNuevoAlimento({ nombre: '', marca: '', unidad_base: 'KG', categoria_id: '', contenido_neto: '', unidad_contenido: 'GR' })
+                        setTienePaquete(false)
+                        setCreandoAlimento(true)
+                        setCreandoError('')
+                        return
+                      }
+                      const al = alimentos.find(a => a.id === Number(e.target.value)) ?? null
+                      setAlimentoSel(al)
+                      setForm(f => ({ ...f, alimento_id: e.target.value, unidad: (al?.unidad_base as Unidad) ?? 'UNIDADES' }))
+                    }}
+                    required={!creandoAlimento}
+                    className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Seleccioná un alimento</option>
+                    {alimentos.map(a => (
+                      <option key={a.id} value={a.id}>{a.nombre}{a.marca ? ` — ${a.marca}` : ''}</option>
+                    ))}
+                    <option value="__nuevo__">+ Crear alimento nuevo</option>
+                  </select>
+                  {!creandoAlimento && alimentoSel && (
+                    <button
+                      type="button"
+                      onClick={() => abrirEdicion(alimentoSel)}
+                      className="shrink-0 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 rounded-md transition-colors"
+                    >
+                      Editar
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {alimentoSel?.unidad_base === 'UNIDADES' && (
+              {creandoAlimento && (
+                <div className="rounded-lg border border-purple-100 bg-purple-50 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-purple-700">{editandoAlimentoId ? 'Editar alimento' : 'Nuevo alimento'}</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-600">Nombre <span className="text-red-400">*</span></Label>
+                    <Input
+                      value={nuevoAlimento.nombre}
+                      onChange={e => setNuevoAlimento(f => ({ ...f, nombre: e.target.value }))}
+                      placeholder="Ej: Arroz"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-600">Marca <span className="text-gray-400">(opcional)</span></Label>
+                    <Input
+                      value={nuevoAlimento.marca}
+                      onChange={e => setNuevoAlimento(f => ({ ...f, marca: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-600">Unidad de medida <span className="text-red-400">*</span></Label>
+                      <select
+                        value={nuevoAlimento.unidad_base}
+                        onChange={e => setNuevoAlimento(f => ({ ...f, unidad_base: e.target.value as Unidad }))}
+                        className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        {UNIDADES.map(u => <option key={u} value={u}>{UNIDAD_LABEL[u]}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-600">Categoría <span className="text-red-400">*</span></Label>
+                      <select
+                        value={nuevoAlimento.categoria_id}
+                        onChange={e => setNuevoAlimento(f => ({ ...f, categoria_id: e.target.value }))}
+                        className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="">Elegí...</option>
+                        {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {nuevoAlimento.unidad_base === 'UNIDADES'
+                      ? 'Ej: huevos, latas — se cuenta por pieza.'
+                      : `Ej: cebolla, carne — se carga el ${UNIDAD_LABEL[nuevoAlimento.unidad_base].toLowerCase()} real que pesaste.`}
+                  </p>
+
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={tienePaquete}
+                        onChange={e => setTienePaquete(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      Viene en paquetes de tamaño fijo
+                    </label>
+                    {tienePaquete && (
+                      <div className="grid grid-cols-2 gap-3 pl-6">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-600">Contenido por paquete <span className="text-red-400">*</span></Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Ej: 400"
+                            value={nuevoAlimento.contenido_neto}
+                            onChange={e => setNuevoAlimento(f => ({ ...f, contenido_neto: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-600">Unidad del paquete</Label>
+                          <select
+                            value={nuevoAlimento.unidad_contenido}
+                            onChange={e => setNuevoAlimento(f => ({ ...f, unidad_contenido: e.target.value as Unidad }))}
+                            className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          >
+                            {UNIDADES.filter(u => u !== 'UNIDADES').map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                        <p className="col-span-2 text-xs text-gray-400">Ej: cada bolsa de arroz trae 400 gr.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {creandoError && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-red-50 text-red-700">
+                      <AlertTriangle size={13} /> {creandoError}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => { setCreandoAlimento(false); setEditandoAlimentoId(null); setCreandoError('') }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      disabled={creandoSaving || !nuevoAlimento.nombre || !nuevoAlimento.categoria_id || (tienePaquete && !nuevoAlimento.contenido_neto)}
+                      onClick={handleCrearAlimento}
+                    >
+                      {creandoSaving ? 'Guardando...' : editandoAlimentoId ? 'Guardar cambios' : 'Crear'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {alimentoSel?.contenido_neto != null && (
                 <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 space-y-1 text-sm">
                   <p className="font-medium text-blue-700">Alimento por paquetes</p>
-                  {alimentoSel.contenido_neto ? (
-                    <p className="text-blue-600 text-xs">Cada paquete contiene <span className="font-semibold">{alimentoSel.contenido_neto} {alimentoSel.unidad_contenido}</span></p>
-                  ) : (
-                    <p className="text-blue-500 text-xs">Sin contenido neto registrado.</p>
-                  )}
+                  <p className="text-blue-600 text-xs">Cada paquete contiene <span className="font-semibold">{alimentoSel.contenido_neto} {alimentoSel.unidad_contenido}</span></p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-gray-600">
-                    {alimentoSel?.unidad_base === 'UNIDADES' ? 'Cantidad de paquetes' : 'Cantidad'} <span className="text-red-400">*</span>
+                    {alimentoSel?.unidad_base === 'UNIDADES' ? 'Cantidad de piezas' : `Cantidad (${alimentoSel ? UNIDAD_LABEL[alimentoSel.unidad_base as Unidad].toLowerCase() : ''})`} <span className="text-red-400">*</span>
                   </Label>
                   <Input type="number" step="0.01" min="0" value={form.cantidad} onChange={e => setForm(f => ({ ...f, cantidad: e.target.value }))} required />
                 </div>
@@ -307,7 +507,7 @@ export default function ResidenteStockPage() {
               )}
               <div className="flex gap-2 pt-1">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Guardando...' : 'Registrar'}</Button>
+                <Button type="submit" className="flex-1" disabled={saving || creandoAlimento}>{saving ? 'Guardando...' : 'Registrar'}</Button>
               </div>
             </form>
           </div>

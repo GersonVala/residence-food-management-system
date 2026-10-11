@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { residenciasService } from "./residencias.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 
 // ============================================================
 // Schema base para creación/edición de residencia
@@ -55,7 +56,7 @@ export async function residenciasRoutes(app: FastifyInstance): Promise<void> {
   // GET /residencias/:id — enriquecido con residentes, voluntarios y fotos
   app.get<{ Params: { id: string } }>(
     "/residencias/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param("id"))] },
     async (request, reply) => {
       try {
         const residencia = await residenciasService.obtenerConRelaciones(
@@ -147,7 +148,7 @@ export async function residenciasRoutes(app: FastifyInstance): Promise<void> {
   // GET /residencias/:id/fotos — listado standalone de fotos de la galería
   app.get<{ Params: { id: string } }>(
     "/residencias/:id/fotos",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param("id"))] },
     async (request, reply) => {
       try {
         const fotos = await residenciasService.listarFotos(Number(request.params.id));

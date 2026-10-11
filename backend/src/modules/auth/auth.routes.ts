@@ -1,7 +1,27 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { authService } from "./auth.service.js";
-import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
+import { authMiddleware, authPermitePrimerLogin } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+
+const MENSAJE_RATE_LIMIT = "Demasiados intentos. Esperá un minuto antes de volver a intentar.";
+
+// Clave IP + email: frena fuerza bruta sobre una cuenta sin que un atacante
+// pueda bloquear a todos los usuarios de la misma IP (ej. una residencia).
+function rateLimitLogin() {
+  return {
+    max: 5,
+    timeWindow: "1 minute",
+    keyGenerator: (request: FastifyRequest) => {
+      const email = (request.body as { email?: string } | undefined)?.email ?? "";
+      return `${request.ip}:${email.toLowerCase()}`;
+    },
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      error: "Demasiados intentos",
+      mensaje: MENSAJE_RATE_LIMIT,
+    }),
+  };
+}
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // -------------------------------------------------------------------------
@@ -12,6 +32,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/auth/login",
     {
+      config: { rateLimit: rateLimitLogin() },
       schema: {
         body: {
           type: "object",
@@ -47,7 +68,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/auth/change-password",
     {
-      preHandler: [authMiddleware],
+      preHandler: [authPermitePrimerLogin],
       schema: {
         body: {
           type: "object",
@@ -88,6 +109,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     "/auth/reset",
     {
       preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+          keyGenerator: (request: FastifyRequest) => `${request.ip}:reset`,
+          errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: "Demasiados intentos",
+            mensaje: MENSAJE_RATE_LIMIT,
+          }),
+        },
+      },
       schema: {
         body: {
           type: "object",
@@ -102,7 +135,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const { user_id } = request.body;
-        const result = await authService.resetPassword(user_id);
+        const result = await authService.resetPassword(request.usuario, user_id);
         return reply.status(200).send(result);
       } catch (err: unknown) {
         const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -119,7 +152,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   // -------------------------------------------------------------------------
   app.get(
     "/auth/me",
-    { preHandler: [authMiddleware] },
+    { preHandler: [authPermitePrimerLogin] },
     async (request, reply) => {
       const { id, email, role, residencia_id } = request.usuario;
       return reply.status(200).send({ id, email, role, residencia_id });

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { historialService } from "./historial.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -18,7 +19,7 @@ export async function historialRoutes(app: FastifyInstance): Promise<void> {
     Querystring: { desde?: string; hasta?: string };
   }>(
     "/residencias/:residencia_id/historial",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())] },
     async (request, reply) => {
       try {
         const { desde, hasta } = request.query;

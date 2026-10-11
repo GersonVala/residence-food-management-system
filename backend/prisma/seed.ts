@@ -32,9 +32,12 @@ async function main() {
   const alimentosData = [
     { nombre: "Pollo entero",           unidad_base: "KG",       categoria: "Carnes" },
     { nombre: "Pechuga de pollo",       unidad_base: "KG",       categoria: "Carnes" },
+    { nombre: "Supremas de pollo",      unidad_base: "KG",       categoria: "Carnes" },
     { nombre: "Carne picada",           unidad_base: "KG",       categoria: "Carnes" },
     { nombre: "Asado de tira",          unidad_base: "KG",       categoria: "Carnes" },
     { nombre: "Milanesa de ternera",    unidad_base: "KG",       categoria: "Carnes" },
+    { nombre: "Bifes de cerdo",         unidad_base: "KG",       categoria: "Carnes" },
+    { nombre: "Bondiola",               unidad_base: "KG",       categoria: "Carnes" },
     { nombre: "Chorizo",                unidad_base: "KG",       categoria: "Carnes" },
     { nombre: "Atún en lata",           unidad_base: "GR",       categoria: "Carnes",            marca: "La Campagnola" },
     { nombre: "Papa",                   unidad_base: "KG",       categoria: "Verduras" },
@@ -45,7 +48,9 @@ async function main() {
     { nombre: "Ajo",                    unidad_base: "GR",       categoria: "Verduras" },
     { nombre: "Pimiento rojo",          unidad_base: "KG",       categoria: "Verduras" },
     { nombre: "Espinaca",               unidad_base: "KG",       categoria: "Verduras" },
-    { nombre: "Choclo",                 unidad_base: "UNIDADES", categoria: "Verduras" },
+    { nombre: "Choclo",                 unidad_base: "KG",       categoria: "Verduras" },
+    { nombre: "Choclo en lata",         unidad_base: "GR",       categoria: "Verduras",          marca: "Arcor",  contenido_neto: 350, unidad_contenido: "GR" },
+    { nombre: "Arveja en lata",         unidad_base: "GR",       categoria: "Verduras",          marca: "Arcor",  contenido_neto: 350, unidad_contenido: "GR" },
     { nombre: "Zapallito",              unidad_base: "KG",       categoria: "Verduras" },
     { nombre: "Berenjena",              unidad_base: "KG",       categoria: "Verduras" },
     { nombre: "Manzana",                unidad_base: "KG",       categoria: "Frutas" },
@@ -53,6 +58,7 @@ async function main() {
     { nombre: "Naranja",                unidad_base: "KG",       categoria: "Frutas" },
     { nombre: "Limón",                  unidad_base: "KG",       categoria: "Frutas" },
     { nombre: "Leche entera",           unidad_base: "LITROS",   categoria: "Lácteos",           marca: "La Serenísima" },
+    { nombre: "Leche en polvo",         unidad_base: "GR",       categoria: "Lácteos",           marca: "Nidal",   contenido_neto: 800, unidad_contenido: "GR" },
     { nombre: "Queso cremoso",          unidad_base: "KG",       categoria: "Lácteos" },
     { nombre: "Queso rallado",          unidad_base: "GR",       categoria: "Lácteos",           marca: "Sancor" },
     { nombre: "Crema de leche",         unidad_base: "ML",       categoria: "Lácteos" },
@@ -61,6 +67,8 @@ async function main() {
     { nombre: "Harina 0000",            unidad_base: "KG",       categoria: "Cereales y Harinas", marca: "Canuelas" },
     { nombre: "Pan rallado",            unidad_base: "GR",       categoria: "Cereales y Harinas" },
     { nombre: "Avena",                  unidad_base: "GR",       categoria: "Cereales y Harinas" },
+    { nombre: "Polenta",                unidad_base: "GR",       categoria: "Cereales y Harinas", marca: "Fuchs",   contenido_neto: 500, unidad_contenido: "GR" },
+    { nombre: "Pan",                    unidad_base: "UNIDADES", categoria: "Cereales y Harinas" },
     { nombre: "Sal fina",               unidad_base: "GR",       categoria: "Condimentos y Especias" },
     { nombre: "Pimienta negra",         unidad_base: "GR",       categoria: "Condimentos y Especias" },
     { nombre: "Orégano",                unidad_base: "GR",       categoria: "Condimentos y Especias" },
@@ -85,6 +93,8 @@ async function main() {
   const alimentoIds: Record<string, number> = {};
   for (const a of alimentosData) {
     const marca = (a as { marca?: string }).marca ?? null;
+    const contenido_neto = (a as { contenido_neto?: number }).contenido_neto ?? null;
+    const unidad_contenido = (a as { unidad_contenido?: string }).unidad_contenido ?? null;
     const existing = await prisma.alimento.findFirst({ where: { nombre: a.nombre, marca } });
     const alimento = existing ?? await prisma.alimento.create({
       data: {
@@ -92,6 +102,8 @@ async function main() {
         marca,
         unidad_base: a.unidad_base as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES",
         categoria_id: categoriasCreadas[a.categoria],
+        contenido_neto,
+        unidad_contenido: unidad_contenido as "KG" | "GR" | "LITROS" | "ML" | "UNIDADES" | null,
       },
     });
     alimentoIds[a.nombre] = alimento.id;
@@ -109,24 +121,49 @@ async function main() {
     tiempo_min: number; personas_base: number;
     ingredientes: { nombre: string; cantidad: number; unidad: Unidad }[];
   }> = [
+    // ── Semana 1 y 2 (menú de ejemplo aportado por el usuario) ──────────────
     {
-      nombre: "Milanesas con puré de papas", dificultad: "FACIL", tiempo_min: 50, personas_base: 10,
-      descripcion: "Clásico argentino. Milanesas de ternera empanadas y fritas, acompañadas de un cremoso puré de papas.",
+      nombre: "Risotto de queso", dificultad: "FACIL", tiempo_min: 35, personas_base: 10,
+      descripcion: "Arroz cremoso cocido de a poco agregando caldo, con queso rallado al final.",
       ingredientes: [
-        { nombre: "Milanesa de ternera", cantidad: 2.5, unidad: "KG" },
-        { nombre: "Huevo", cantidad: 6, unidad: "UNIDADES" },
-        { nombre: "Pan rallado", cantidad: 400, unidad: "GR" },
-        { nombre: "Papa", cantidad: 3, unidad: "KG" },
+        { nombre: "Arroz largo fino", cantidad: 1, unidad: "KG" },
         { nombre: "Manteca", cantidad: 100, unidad: "GR" },
-        { nombre: "Leche entera", cantidad: 0.3, unidad: "LITROS" },
-        { nombre: "Aceite de girasol", cantidad: 0.5, unidad: "LITROS" },
-        { nombre: "Sal fina", cantidad: 20, unidad: "GR" },
-        { nombre: "Pimienta negra", cantidad: 5, unidad: "GR" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Queso rallado", cantidad: 200, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.05, unidad: "LITROS" },
+        { nombre: "Caldo de verdura", cantidad: 3, unidad: "UNIDADES" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
       ],
     },
     {
-      nombre: "Fideos con salsa bolognesa", dificultad: "FACIL", tiempo_min: 45, personas_base: 10,
-      descripcion: "Salsa bolognesa casera con carne picada y tomate, sobre fideos spaghetti al dente.",
+      nombre: "Salpicón de pollo", dificultad: "FACIL", tiempo_min: 40, personas_base: 10,
+      descripcion: "Ensalada fría de pollo hervido y desmenuzado con papa, zanahoria y huevo.",
+      ingredientes: [
+        { nombre: "Pechuga de pollo", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Papa", cantidad: 1, unidad: "KG" },
+        { nombre: "Zanahoria", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 6, unidad: "UNIDADES" },
+        { nombre: "Aceite de oliva", cantidad: 0.1, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Milanesas de berenjena con guarnición", dificultad: "MEDIO", tiempo_min: 55, personas_base: 10,
+      descripcion: "Rodajas de berenjena empanadas y fritas, acompañadas de puré de papas.",
+      ingredientes: [
+        { nombre: "Berenjena", cantidad: 2, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 10, unidad: "UNIDADES" },
+        { nombre: "Pan rallado", cantidad: 400, unidad: "GR" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.3, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Espaguetis a la bolognesa", dificultad: "FACIL", tiempo_min: 40, personas_base: 10,
+      descripcion: "Salsa de carne picada cocida a fuego lento con tomate, servida sobre fideos spaghetti.",
       ingredientes: [
         { nombre: "Fideos spaghetti", cantidad: 1.5, unidad: "KG" },
         { nombre: "Carne picada", cantidad: 1.5, unidad: "KG" },
@@ -140,27 +177,149 @@ async function main() {
       ],
     },
     {
-      nombre: "Arroz con pollo", dificultad: "MEDIO", tiempo_min: 60, personas_base: 10,
-      descripcion: "Guiso clásico y nutritivo. El pollo se dora primero para sellar los jugos, luego se cocina junto al arroz.",
+      nombre: "Patys de lentejas con guarnición", dificultad: "MEDIO", tiempo_min: 60, personas_base: 10,
+      descripcion: "Hamburguesas de lentejas cocidas y procesadas, apanadas y fritas, con puré de acompañamiento.",
       ingredientes: [
-        { nombre: "Pollo entero", cantidad: 3, unidad: "KG" },
-        { nombre: "Arroz largo fino", cantidad: 1, unidad: "KG" },
-        { nombre: "Cebolla", cantidad: 0.5, unidad: "KG" },
-        { nombre: "Pimiento rojo", cantidad: 0.3, unidad: "KG" },
-        { nombre: "Tomate", cantidad: 0.5, unidad: "KG" },
-        { nombre: "Ajo", cantidad: 15, unidad: "GR" },
-        { nombre: "Aceite de girasol", cantidad: 0.1, unidad: "LITROS" },
-        { nombre: "Caldo de verdura", cantidad: 3, unidad: "UNIDADES" },
+        { nombre: "Lentejas", cantidad: 1, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 6, unidad: "UNIDADES" },
+        { nombre: "Pan rallado", cantidad: 300, unidad: "GR" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.2, unidad: "LITROS" },
         { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
-        { nombre: "Pimentón dulce", cantidad: 10, unidad: "GR" },
       ],
     },
     {
-      nombre: "Guiso de lentejas", dificultad: "FACIL", tiempo_min: 55, personas_base: 10,
-      descripcion: "Guiso reconfortante y muy nutritivo. Las lentejas no necesitan remojo previo.",
+      nombre: "Milanesas de cerdo con guarnición", dificultad: "MEDIO", tiempo_min: 55, personas_base: 10,
+      descripcion: "Bifes de cerdo empanados y fritos, acompañados de puré de papas.",
+      ingredientes: [
+        { nombre: "Bifes de cerdo", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 6, unidad: "UNIDADES" },
+        { nombre: "Pan rallado", cantidad: 400, unidad: "GR" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.3, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Verduras al horno con fideos salteados", dificultad: "FACIL", tiempo_min: 45, personas_base: 10,
+      descripcion: "Zapallo, zanahoria y berenjena asados al horno, servidos con fideos salteados en aceite de oliva.",
+      ingredientes: [
+        { nombre: "Fideos spaghetti", cantidad: 1, unidad: "KG" },
+        { nombre: "Zapallo", cantidad: 1, unidad: "KG" },
+        { nombre: "Zanahoria", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Berenjena", cantidad: 1, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Aceite de oliva", cantidad: 0.15, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Risotto de carne", dificultad: "MEDIO", tiempo_min: 45, personas_base: 10,
+      descripcion: "Arroz cremoso con carne picada dorada, cocido de a poco agregando caldo.",
+      ingredientes: [
+        { nombre: "Arroz largo fino", cantidad: 1, unidad: "KG" },
+        { nombre: "Carne picada", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Queso rallado", cantidad: 200, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.1, unidad: "LITROS" },
+        { nombre: "Caldo de verdura", cantidad: 3, unidad: "UNIDADES" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Pizzas caseras", dificultad: "MEDIO", tiempo_min: 70, personas_base: 10,
+      descripcion: "Masa casera con salsa de tomate y queso, horneada hasta gratinar.",
+      ingredientes: [
+        { nombre: "Harina 0000", cantidad: 2, unidad: "KG" },
+        { nombre: "Queso cremoso", cantidad: 1, unidad: "KG" },
+        { nombre: "Puré de tomate", cantidad: 500, unidad: "GR" },
+        { nombre: "Aceite de oliva", cantidad: 0.15, unidad: "LITROS" },
+        { nombre: "Orégano", cantidad: 10, unidad: "GR" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Pastel mixto de carne y verdura", dificultad: "MEDIO", tiempo_min: 75, personas_base: 10,
+      descripcion: "Puré de papa y zapallo mixto relleno con carne picada salteada, gratinado al horno.",
+      ingredientes: [
+        { nombre: "Papa", cantidad: 2, unidad: "KG" },
+        { nombre: "Zapallo", cantidad: 1, unidad: "KG" },
+        { nombre: "Carne picada", cantidad: 3, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 100, unidad: "GR" },
+        { nombre: "Sal fina", cantidad: 20, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Tarta de verduras con guarnición", dificultad: "MEDIO", tiempo_min: 70, personas_base: 10,
+      descripcion: "Tarta de zapallo y zanahoria con base de harina, servida con puré de papas.",
+      ingredientes: [
+        { nombre: "Harina 0000", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 10, unidad: "UNIDADES" },
+        { nombre: "Zapallo", cantidad: 1, unidad: "KG" },
+        { nombre: "Zanahoria", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.2, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Sandwich de bondiola", dificultad: "FACIL", tiempo_min: 30, personas_base: 10,
+      descripcion: "Bondiola cocida a fuego lento y cortada en fetas, servida en pan con cebolla salteada.",
+      ingredientes: [
+        { nombre: "Bondiola", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Pan", cantidad: 10, unidad: "UNIDADES" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Aceite de oliva", cantidad: 0.1, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 10, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Guiso de polenta con tuco", dificultad: "FACIL", tiempo_min: 40, personas_base: 10,
+      descripcion: "Polenta cocida cremosa, servida con salsa de tomate y queso rallado por encima.",
+      ingredientes: [
+        { nombre: "Polenta", cantidad: 1, unidad: "KG" },
+        { nombre: "Puré de tomate", cantidad: 500, unidad: "GR" },
+        { nombre: "Queso rallado", cantidad: 150, unidad: "GR" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Aceite de girasol", cantidad: 0.1, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Tortilla de verduras", dificultad: "FACIL", tiempo_min: 35, personas_base: 10,
+      descripcion: "Tortilla horneada de huevo con papa y verduras salteadas, cortada en porciones.",
+      ingredientes: [
+        { nombre: "Huevo", cantidad: 25, unidad: "UNIDADES" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.4, unidad: "KG" },
+        { nombre: "Zapallito", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Aceite de girasol", cantidad: 0.2, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Patys con guarnición (doble carne)", dificultad: "MEDIO", tiempo_min: 60, personas_base: 10,
+      descripcion: "Hamburguesas caseras de carne, apanadas y fritas, acompañadas de puré de papas.",
+      ingredientes: [
+        { nombre: "Carne picada", cantidad: 3, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 10, unidad: "UNIDADES" },
+        { nombre: "Pan rallado", cantidad: 400, unidad: "GR" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.2, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Guiso de lentejas simple", dificultad: "FACIL", tiempo_min: 50, personas_base: 10,
+      descripcion: "Guiso liviano de lentejas con verduras, sin chorizo, ideal para el almuerzo.",
       ingredientes: [
         { nombre: "Lentejas", cantidad: 1.2, unidad: "KG" },
-        { nombre: "Chorizo", cantidad: 0.5, unidad: "KG" },
         { nombre: "Papa", cantidad: 1, unidad: "KG" },
         { nombre: "Zanahoria", cantidad: 0.5, unidad: "KG" },
         { nombre: "Cebolla", cantidad: 0.4, unidad: "KG" },
@@ -173,90 +332,56 @@ async function main() {
       ],
     },
     {
-      nombre: "Pollo al horno con papas", dificultad: "FACIL", tiempo_min: 75, personas_base: 10,
-      descripcion: "Pollo trozado marinado con ajo, limón y pimentón, horneado junto a papas cortadas en gajos.",
+      nombre: "Milanesas de pollo con guarnición", dificultad: "MEDIO", tiempo_min: 55, personas_base: 10,
+      descripcion: "Supremas de pollo empanadas y fritas, acompañadas de puré de papas.",
       ingredientes: [
-        { nombre: "Pollo entero", cantidad: 4, unidad: "KG" },
-        { nombre: "Papa", cantidad: 2.5, unidad: "KG" },
-        { nombre: "Ajo", cantidad: 30, unidad: "GR" },
-        { nombre: "Limón", cantidad: 0.4, unidad: "KG" },
-        { nombre: "Aceite de oliva", cantidad: 0.15, unidad: "LITROS" },
-        { nombre: "Sal fina", cantidad: 20, unidad: "GR" },
-        { nombre: "Pimienta negra", cantidad: 8, unidad: "GR" },
-        { nombre: "Pimentón dulce", cantidad: 10, unidad: "GR" },
-        { nombre: "Orégano", cantidad: 8, unidad: "GR" },
-      ],
-    },
-    {
-      nombre: "Tarta de verduras", dificultad: "MEDIO", tiempo_min: 65, personas_base: 10,
-      descripcion: "Tarta casera rellena de espinaca, zapallito y queso. La masa se pre-cocina 10 min antes de rellenar.",
-      ingredientes: [
-        { nombre: "Harina 0000", cantidad: 0.8, unidad: "KG" },
-        { nombre: "Manteca", cantidad: 150, unidad: "GR" },
-        { nombre: "Espinaca", cantidad: 1, unidad: "KG" },
-        { nombre: "Zapallito", cantidad: 0.8, unidad: "KG" },
-        { nombre: "Cebolla", cantidad: 0.4, unidad: "KG" },
-        { nombre: "Huevo", cantidad: 5, unidad: "UNIDADES" },
-        { nombre: "Queso cremoso", cantidad: 0.4, unidad: "KG" },
-        { nombre: "Aceite de girasol", cantidad: 0.1, unidad: "LITROS" },
+        { nombre: "Supremas de pollo", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 10, unidad: "UNIDADES" },
+        { nombre: "Pan rallado", cantidad: 400, unidad: "GR" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.3, unidad: "LITROS" },
         { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
       ],
     },
     {
-      nombre: "Asado de tira con ensalada", dificultad: "MEDIO", tiempo_min: 90, personas_base: 10,
-      descripcion: "Asado de tira a la parrilla o al horno. El secreto es la temperatura constante y no apurar la cocción.",
+      nombre: "Pollo con salsa blanca", dificultad: "MEDIO", tiempo_min: 50, personas_base: 10,
+      descripcion: "Pechugas de pollo cocidas en salsa blanca cremosa a base de manteca, harina y leche.",
       ingredientes: [
-        { nombre: "Asado de tira", cantidad: 4, unidad: "KG" },
-        { nombre: "Sal fina", cantidad: 30, unidad: "GR" },
-        { nombre: "Tomate", cantidad: 1, unidad: "KG" },
-        { nombre: "Cebolla", cantidad: 0.5, unidad: "KG" },
-        { nombre: "Ají molido", cantidad: 10, unidad: "GR" },
-        { nombre: "Aceite de oliva", cantidad: 0.1, unidad: "LITROS" },
-        { nombre: "Limón", cantidad: 0.3, unidad: "KG" },
-      ],
-    },
-    {
-      nombre: "Zapallo relleno", dificultad: "MEDIO", tiempo_min: 80, personas_base: 10,
-      descripcion: "Mitades de zapallo asadas al horno y rellenas con una mezcla de arroz, verduras y queso gratinado.",
-      ingredientes: [
-        { nombre: "Zapallo", cantidad: 5, unidad: "KG" },
-        { nombre: "Arroz largo fino", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Pechuga de pollo", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 100, unidad: "GR" },
+        { nombre: "Harina 0000", cantidad: 0.15, unidad: "KG" },
+        { nombre: "Leche entera", cantidad: 1, unidad: "LITROS" },
         { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
-        { nombre: "Zanahoria", cantidad: 0.3, unidad: "KG" },
-        { nombre: "Queso cremoso", cantidad: 0.3, unidad: "KG" },
-        { nombre: "Queso rallado", cantidad: 150, unidad: "GR" },
-        { nombre: "Huevo", cantidad: 3, unidad: "UNIDADES" },
-        { nombre: "Aceite de girasol", cantidad: 0.08, unidad: "LITROS" },
-        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
-        { nombre: "Perejil", cantidad: 10, unidad: "GR" },
-      ],
-    },
-    {
-      nombre: "Fideos con atún", dificultad: "FACIL", tiempo_min: 25, personas_base: 10,
-      descripcion: "Plato rápido y económico. El atún se incorpora fuera del fuego para no resecarlo.",
-      ingredientes: [
-        { nombre: "Fideos moñito", cantidad: 1.5, unidad: "KG" },
-        { nombre: "Atún en lata", cantidad: 600, unidad: "GR" },
-        { nombre: "Puré de tomate", cantidad: 400, unidad: "GR" },
-        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
-        { nombre: "Ajo", cantidad: 10, unidad: "GR" },
-        { nombre: "Aceite de oliva", cantidad: 0.08, unidad: "LITROS" },
-        { nombre: "Orégano", cantidad: 8, unidad: "GR" },
-        { nombre: "Sal fina", cantidad: 10, unidad: "GR" },
-      ],
-    },
-    {
-      nombre: "Pechuga a la plancha con arroz", dificultad: "FACIL", tiempo_min: 40, personas_base: 10,
-      descripcion: "Pechugas de pollo marinadas y cocinadas a la plancha, acompañadas de arroz blanco.",
-      ingredientes: [
-        { nombre: "Pechuga de pollo", cantidad: 2.5, unidad: "KG" },
-        { nombre: "Arroz largo fino", cantidad: 1, unidad: "KG" },
-        { nombre: "Ajo", cantidad: 20, unidad: "GR" },
-        { nombre: "Limón", cantidad: 0.3, unidad: "KG" },
-        { nombre: "Aceite de oliva", cantidad: 0.1, unidad: "LITROS" },
         { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
         { nombre: "Pimienta negra", cantidad: 5, unidad: "GR" },
-        { nombre: "Caldo de verdura", cantidad: 2, unidad: "UNIDADES" },
+      ],
+    },
+    {
+      nombre: "Tortilla de verduras con arroz", dificultad: "FACIL", tiempo_min: 40, personas_base: 10,
+      descripcion: "Tortilla horneada de huevo con arroz cocido y verduras salteadas.",
+      ingredientes: [
+        { nombre: "Huevo", cantidad: 20, unidad: "UNIDADES" },
+        { nombre: "Arroz largo fino", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.4, unidad: "KG" },
+        { nombre: "Zapallito", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Aceite de girasol", cantidad: 0.2, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
+      ],
+    },
+    {
+      nombre: "Tarta de pollo y verduras con guarnición", dificultad: "MEDIO", tiempo_min: 70, personas_base: 10,
+      descripcion: "Tarta rellena de pollo desmenuzado y verduras salteadas, servida con puré de papas.",
+      ingredientes: [
+        { nombre: "Harina 0000", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Pechuga de pollo", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Huevo", cantidad: 10, unidad: "UNIDADES" },
+        { nombre: "Zapallito", cantidad: 0.5, unidad: "KG" },
+        { nombre: "Cebolla", cantidad: 0.3, unidad: "KG" },
+        { nombre: "Papa", cantidad: 1.5, unidad: "KG" },
+        { nombre: "Manteca", cantidad: 80, unidad: "GR" },
+        { nombre: "Aceite de girasol", cantidad: 0.2, unidad: "LITROS" },
+        { nombre: "Sal fina", cantidad: 15, unidad: "GR" },
       ],
     },
   ];
@@ -385,48 +510,51 @@ async function main() {
   console.log(`${residentesData.length} residentes`);
 
   // -------------------------------------------------------------------------
-  // Menús — crear para cada residencia
+  // Menús — catálogo global de biblioteca (residencia_id: null)
   // -------------------------------------------------------------------------
-  const menuIdsByRes: Record<number, number[]> = { 1: [], 2: [], 3: [] };
+  async function upsertMenu(m: (typeof menusData)[number], residenciaId: number | null) {
+    const existing = await prisma.menu.findFirst({ where: { nombre: m.nombre, residencia_id: residenciaId } });
+    const menu = existing ?? await prisma.menu.create({
+      data: {
+        nombre: m.nombre, descripcion: m.descripcion,
+        dificultad: m.dificultad, tiempo_min: m.tiempo_min,
+        personas_base: m.personas_base, residencia_id: residenciaId,
+      },
+    });
 
-  for (const residenciaId of [1, 2, 3]) {
-    for (const m of menusData) {
-      const existing = await prisma.menu.findFirst({ where: { nombre: m.nombre, residencia_id: residenciaId } });
-      let menu;
-      if (existing) {
-        menu = existing;
-      } else {
-        menu = await prisma.menu.create({
+    for (const ing of m.ingredientes) {
+      const alimentoId = alimentoIds[ing.nombre];
+      if (!alimentoId) continue;
+      const existeIng = await prisma.menuIngrediente.findUnique({
+        where: { menu_id_alimento_id: { menu_id: menu.id, alimento_id: alimentoId } },
+      });
+      if (!existeIng) {
+        await prisma.menuIngrediente.create({
           data: {
-            nombre: m.nombre, descripcion: m.descripcion,
-            dificultad: m.dificultad, tiempo_min: m.tiempo_min,
-            personas_base: m.personas_base, residencia_id: residenciaId,
+            menu_id: menu.id, alimento_id: alimentoId,
+            cantidad_base: ing.cantidad,
+            cantidad_por_persona: ing.cantidad / m.personas_base,
+            unidad: ing.unidad,
           },
         });
       }
-      menuIdsByRes[residenciaId].push(menu.id);
-
-      for (const ing of m.ingredientes) {
-        const alimentoId = alimentoIds[ing.nombre];
-        if (!alimentoId) continue;
-        const existeIng = await prisma.menuIngrediente.findUnique({
-          where: { menu_id_alimento_id: { menu_id: menu.id, alimento_id: alimentoId } },
-        });
-        if (!existeIng) {
-          await prisma.menuIngrediente.create({
-            data: {
-              menu_id: menu.id, alimento_id: alimentoId,
-              cantidad_base: ing.cantidad,
-              cantidad_por_persona: ing.cantidad / m.personas_base,
-              unidad: ing.unidad,
-            },
-          });
-        }
-      }
     }
+    return menu.id;
   }
 
-  console.log(`${menusData.length * 3} menús (10 × 3 residencias)`);
+  const menuIdsByRes: Record<number, number[]> = { 1: [], 2: [], 3: [], 5: [] };
+
+  for (const m of menusData) {
+    await upsertMenu(m, null);
+  }
+  console.log(`${menusData.length} menús (biblioteca)`);
+
+  // También se clonan directamente a Residencia CABA (id 5) para uso inmediato
+  for (const m of menusData) {
+    const menuId = await upsertMenu(m, 5);
+    menuIdsByRes[5].push(menuId);
+  }
+  console.log(`${menusData.length} menús clonados a Residencia CABA`);
 
   // -------------------------------------------------------------------------
   // Stock — para cada residencia
@@ -447,7 +575,7 @@ async function main() {
     { nombre: "Ajo",                 cantidad: 300,  unidad: "GR",       minimo: 100, vence: null },
     { nombre: "Pimiento rojo",       cantidad: 2,    unidad: "KG",       minimo: 0.5, vence: "2026-06-30" },
     { nombre: "Espinaca",            cantidad: 1.5,  unidad: "KG",       minimo: 0.5, vence: "2026-06-26" },
-    { nombre: "Choclo",              cantidad: 12,   unidad: "UNIDADES", minimo: 4,   vence: null },
+    { nombre: "Choclo",              cantidad: 6,    unidad: "KG",       minimo: 2,   vence: null },
     { nombre: "Zapallito",           cantidad: 3,    unidad: "KG",       minimo: 1,   vence: "2026-06-28" },
     { nombre: "Berenjena",           cantidad: 2,    unidad: "KG",       minimo: 0.5, vence: null },
     { nombre: "Manzana",             cantidad: 4,    unidad: "KG",       minimo: 1,   vence: null },
@@ -619,13 +747,11 @@ async function main() {
       where: { turno_id: turnoHoy.id, residente_id: resIds[0] },
     });
     if (!yaExiste) {
-      const residencia = await prisma.residencia.findUnique({ where: { id: residenciaId } });
-      const rollback_deadline = new Date(fechaHoy.getTime() - (residencia?.rollback_horas ?? 2) * 60 * 60 * 1000);
       await prisma.seleccionMenu.create({
         data: {
           turno_id: turnoHoy.id, menu_id: menus[0],
           residente_id: resIds[0], personas: 8,
-          estado: "PENDIENTE", rollback_deadline,
+          estado: "PENDIENTE",
         },
       });
     }

@@ -3,6 +3,7 @@ import { residentesService } from "./residentes.service.js";
 import { residentesRepository } from "./residentes.repository.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 import { prisma } from "../../shared/prisma/client.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
@@ -100,7 +101,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
   // GET /residencias/:residencia_id/residentes
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/residentes",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())] },
     async (request, reply) => {
       try {
         const residentes = await residentesService.listar(Number(request.params.residencia_id));
@@ -114,7 +115,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
   // GET /residentes/:id
   app.get<{ Params: { id: string } }>(
     "/residentes/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.residente())] },
     async (request, reply) => {
       try {
         const residente = await residentesService.obtener(Number(request.params.id));
@@ -144,7 +145,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/residentes",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())],
       schema: {
         body: {
           ...schemaBase,
@@ -191,7 +192,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residentes/:id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.residente()), requireMismaResidencia(residenciaDe.body())],
       schema: { body: schemaBase },
     },
     async (request, reply) => {
@@ -214,7 +215,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: { id: string }; Body: { puede_cargar_stock: boolean } }>(
     "/residentes/:id/permiso-stock",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.residente())],
       schema: {
         body: {
           type: "object",
@@ -242,7 +243,7 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
   app.delete<{ Params: { id: string }; Body: { motivo_baja: string } }>(
     "/residentes/:id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.residente())],
       schema: {
         body: {
           type: "object",

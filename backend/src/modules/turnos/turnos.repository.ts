@@ -15,7 +15,6 @@ export type CreateSeleccionInput = {
   menu_id: number;
   residente_id: number;
   personas: number;
-  rollback_deadline: Date;
   nota?: string;
 };
 

@@ -6,6 +6,7 @@ import { BookOpen, Clock, ChevronDown, ChevronUp, Users, CheckCircle2, AlertTria
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { calcularCantidad, calcularMaxPersonas } from '@/lib/recetas'
 
 type Dificultad = 'FACIL' | 'MEDIO' | 'DIFICIL'
 
@@ -64,23 +65,21 @@ function formatCantidad(cantidad: number, unidad: string): string {
 }
 
 function calcularIngrediente(ing: Ingrediente, cant: number, base: number): number {
-  const factor = cant / base
-  return Math.round((ing.cantidad_base * factor + ing.cantidad_por_persona * cant) * 100) / 100
+  return calcularCantidad(ing.cantidad_base, cant, base)
 }
 
-function calcularMaxPersonas(
+function calcularMaxPersonasPorStock(
   ingredientes: Ingrediente[],
-  stockPorAlimento: Map<number, StockItem[]>
+  stockPorAlimento: Map<number, StockItem[]>,
+  personasBase: number
 ): number {
-  let max = 999
-  for (const ing of ingredientes) {
-    if (ing.cantidad_por_persona <= 0) continue
-    const lotes = stockPorAlimento.get(ing.alimento.id) ?? []
-    const stockTotal = lotes.reduce((acc, l) => acc + l.cantidad, 0)
-    const personasConEsteStock = Math.floor((stockTotal - ing.cantidad_base) / ing.cantidad_por_persona)
-    if (personasConEsteStock < max) max = Math.max(0, personasConEsteStock)
-  }
-  return max === 999 ? 200 : max
+  return calcularMaxPersonas(
+    ingredientes.map(ing => ({
+      cantidad_base: ing.cantidad_base,
+      disponible: (stockPorAlimento.get(ing.alimento.id) ?? []).reduce((acc, l) => acc + l.cantidad, 0),
+    })),
+    personasBase,
+  )
 }
 
 type EstadoIngrediente =
@@ -281,7 +280,7 @@ export default function ResidenteMenusPage() {
         <div className="space-y-3">
           {menusVisibles.map(menu => {
             const abierto = expanded === menu.id
-            const maxPersonas = calcularMaxPersonas(menu.ingredientes, stockPorAlimento)
+            const maxPersonas = calcularMaxPersonasPorStock(menu.ingredientes, stockPorAlimento, menu.personas_base)
             const cant = Math.min(getPersonas(menu.id, menu.personas_base), maxPersonas || 1)
 
             const evaluaciones = menu.ingredientes.map(ing => ({

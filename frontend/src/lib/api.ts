@@ -1,4 +1,12 @@
-import { getToken } from '@/modules/auth/auth.utils'
+import { getToken, irACambioPassword } from '@/modules/auth/auth.utils'
+
+const CAMBIO_PASSWORD_REQUERIDO = 'CAMBIO_PASSWORD_REQUERIDO'
+
+async function fallar(res: Response): Promise<never> {
+  const body = await res.json().catch(() => ({}))
+  if (res.status === 403 && body.error === CAMBIO_PASSWORD_REQUERIDO) irACambioPassword()
+  throw { status: res.status, ...body }
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
@@ -12,10 +20,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw { status: res.status, ...body }
-  }
+  if (!res.ok) return fallar(res)
   if (res.status === 204) return undefined as T
   return res.json()
 }
@@ -30,10 +35,7 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
       // No Content-Type: browser sets it with the multipart boundary
     },
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw { status: res.status, ...body }
-  }
+  if (!res.ok) return fallar(res)
   if (res.status === 204) return undefined as T
   return res.json()
 }
