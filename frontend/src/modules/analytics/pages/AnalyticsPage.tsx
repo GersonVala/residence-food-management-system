@@ -462,8 +462,8 @@ export default function AnalyticsPage() {
                           cx="50%"
                           cy="50%"
                           outerRadius={90}
-                          label={({ nombre, percent }) =>
-                            `${nombre.split(' ')[0]} ${(percent * 100).toFixed(0)}%`
+                          label={({ name, percent }) =>
+                            `${String(name ?? '').split(' ')[0]} ${((percent ?? 0) * 100).toFixed(0)}%`
                           }
                           labelLine={true}
                         >

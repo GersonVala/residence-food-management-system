@@ -150,8 +150,8 @@ describe('ResidenciaDetailPage — tab Residentes con datos', () => {
     mockGetResidenciaDetalle.mockResolvedValueOnce({
       ...residenciaBase,
       residentes: [
-        { id: 10, nombre: 'María', apellido: 'García', dni: '12345678', universidad: 'UBA', carrera: 'Medicina', activo: true, fecha_ingreso: '2024-01-01' },
-        { id: 11, nombre: 'Juan', apellido: 'Pérez', dni: '87654321', universidad: null, carrera: null, activo: true, fecha_ingreso: '2024-01-01' },
+        { id: 10, nombre: 'María', apellido: 'García', dni: '12345678', universidad: 'UBA', carrera: 'Medicina', activo: true, fecha_ingreso: '2024-01-01', fecha_retiro: null },
+        { id: 11, nombre: 'Juan', apellido: 'Pérez', dni: '87654321', universidad: null, carrera: null, activo: true, fecha_ingreso: '2024-01-01', fecha_retiro: null },
       ],
     })
     renderPage()

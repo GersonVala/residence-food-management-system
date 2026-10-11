@@ -1,9 +1,10 @@
-/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+// La config de tests vive en vitest.config.ts: vitest@2 trae su propio Vite 5
+// y sus tipos no son compatibles con el Vite 6 del proyecto.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -25,20 +26,5 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    environmentOptions: {
-      jsdom: {
-        url: 'http://localhost',
-      },
-    },
-    setupFiles: ['./src/test/setup.ts'],
-    css: false,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
-    clearMocks: true,
-    restoreMocks: true,
   },
 })

@@ -2,10 +2,13 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { removeToken, decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { cn } from '@/lib/utils'
 import {
-  Home, Building2, Users, Package, LogOut, BookOpen, BarChart2, UtensilsCrossed, CalendarDays, History, ChefHat, ShoppingBasket, UserCircle, UserCog, CircleUserRound
+  Home, Building2, Users, Package, LogOut, BookOpen, BarChart2, UtensilsCrossed, CalendarDays, History, ChefHat, ShoppingBasket, UserCircle, UserCog, CircleUserRound,
+  type LucideIcon,
 } from 'lucide-react'
 
-const adminNavItems = [
+type NavItem = { to: string; icon: LucideIcon; label: string; roles?: string[] }
+
+const adminNavItems: NavItem[] = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics', roles: ['ADMIN_GLOBAL'] },
   { to: '/residencias', icon: Building2, label: 'Residencias', roles: ['ADMIN_GLOBAL'] },
@@ -20,7 +23,7 @@ const adminNavItems = [
   { to: '/mi-perfil-admin', icon: CircleUserRound, label: 'Mi perfil' },
 ]
 
-const residenteNavItems = [
+const residenteNavItems: NavItem[] = [
   { to: '/mi-residencia', icon: ChefHat, label: 'Mi residencia' },
   { to: '/mis-menus', icon: BookOpen, label: 'Menús' },
   { to: '/mi-stock', icon: ShoppingBasket, label: 'Stock' },
