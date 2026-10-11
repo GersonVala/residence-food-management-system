@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { menusService } from "./menus.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -30,7 +31,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string }; Body: { residencia_id: number } }>(
     "/menus/:id/clonar",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu()), requireMismaResidencia(residenciaDe.body())],
       schema: {
         body: {
           type: "object",
@@ -99,7 +100,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // GET /residencias/:residencia_id/menus
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/menus",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.param())] },
     async (request, reply) => {
       try {
         const menus = await menusService.listar(Number(request.params.residencia_id));
@@ -113,7 +114,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // GET /menus/:id
   app.get<{ Params: { id: string } }>(
     "/menus/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.menu())] },
     async (request, reply) => {
       try {
         const menu = await menusService.obtener(Number(request.params.id));
@@ -139,7 +140,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/menus",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())],
       schema: {
         body: {
           type: "object",
@@ -187,7 +188,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/menus/:id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu(), { permitirCompartido: false })],
       schema: {
         body: {
           type: "object",
@@ -221,7 +222,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /menus/:id
   app.delete<{ Params: { id: string } }>(
     "/menus/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu(), { permitirCompartido: false })] },
     async (request, reply) => {
       try {
         await menusService.eliminar(Number(request.params.id));
@@ -244,7 +245,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/menus/:id/ingredientes",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu(), { permitirCompartido: false })],
       schema: {
         body: {
           type: "object",
@@ -280,7 +281,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/menus/:id/ingredientes/:alimento_id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu(), { permitirCompartido: false })],
       schema: {
         body: {
           type: "object",
@@ -314,7 +315,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /menus/:id/ingredientes/:alimento_id
   app.delete<{ Params: { id: string; alimento_id: string } }>(
     "/menus/:id/ingredientes/:alimento_id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu(), { permitirCompartido: false })] },
     async (request, reply) => {
       try {
         await menusService.quitarIngrediente(
@@ -331,7 +332,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // POST /menus/:id/imagen — subir imagen (multipart)
   app.post<{ Params: { id: string } }>(
     "/menus/:id/imagen",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu(), { permitirCompartido: false })] },
     async (request, reply) => {
       try {
         const file = await request.file();
@@ -350,7 +351,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string }; Body: { grupo_id: number } }>(
     "/menus/:id/grupos",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu()), requireMismaResidencia(residenciaDe.grupoEnBody())],
       schema: {
         body: {
           type: "object",
@@ -376,7 +377,7 @@ export async function menusRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /menus/:id/grupos/:grupo_id
   app.delete<{ Params: { id: string; grupo_id: string } }>(
     "/menus/:id/grupos/:grupo_id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.menu()), requireMismaResidencia(residenciaDe.grupo("grupo_id"))] },
     async (request, reply) => {
       try {
         await menusService.quitarGrupo(

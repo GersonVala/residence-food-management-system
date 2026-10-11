@@ -3,6 +3,7 @@ import { gruposService } from "./grupos.service.js";
 import { gruposRepository } from "./grupos.repository.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -16,7 +17,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // GET /residentes/:residente_id/grupo — el grupo activo de un residente (RESIDENTE puede consultar el suyo)
   app.get<{ Params: { residente_id: string } }>(
     "/residentes/:residente_id/grupo",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.residente("residente_id"))] },
     async (request, reply) => {
       try {
         const integrante = await gruposRepository.findIntegranteEnCualquierGrupo(Number(request.params.residente_id));
@@ -33,7 +34,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // GET /residencias/:residencia_id/grupos
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/grupos",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())] },
     async (request, reply) => {
       try {
         const grupos = await gruposService.listar(Number(request.params.residencia_id));
@@ -47,7 +48,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // GET /grupos/:id
   app.get<{ Params: { id: string } }>(
     "/grupos/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.grupo())] },
     async (request, reply) => {
       try {
         const grupo = await gruposService.obtener(Number(request.params.id));
@@ -62,7 +63,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { residencia_id: string }; Body: { nombre: string } }>(
     "/residencias/:residencia_id/grupos",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())],
       schema: {
         body: {
           type: "object",
@@ -89,7 +90,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: { id: string }; Body: { nombre: string } }>(
     "/grupos/:id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.grupo())],
       schema: {
         body: {
           type: "object",
@@ -112,7 +113,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /grupos/:id — disolver (soft delete)
   app.delete<{ Params: { id: string } }>(
     "/grupos/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.grupo())] },
     async (request, reply) => {
       try {
         await gruposService.disolver(Number(request.params.id));
@@ -126,7 +127,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // GET /grupos/:id/integrantes
   app.get<{ Params: { id: string } }>(
     "/grupos/:id/integrantes",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.grupo())] },
     async (request, reply) => {
       try {
         const integrantes = await gruposService.listarIntegrantes(Number(request.params.id));
@@ -141,7 +142,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string }; Body: { residente_id: number } }>(
     "/grupos/:id/integrantes",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.grupo()), requireMismaResidencia(residenciaDe.residenteEnBody())],
       schema: {
         body: {
           type: "object",
@@ -167,7 +168,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /grupos/:id/integrantes/:residente_id
   app.delete<{ Params: { id: string; residente_id: string } }>(
     "/grupos/:id/integrantes/:residente_id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.grupo())] },
     async (request, reply) => {
       try {
         await gruposService.quitarIntegrante(
@@ -184,7 +185,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // GET /grupos/:id/menus
   app.get<{ Params: { id: string } }>(
     "/grupos/:id/menus",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.grupo())] },
     async (request, reply) => {
       try {
         const menus = await gruposService.listarMenus(Number(request.params.id));
@@ -199,7 +200,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string }; Body: { menu_id: number } }>(
     "/grupos/:id/menus",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.grupo()), requireMismaResidencia(residenciaDe.menuEnBody())],
       schema: {
         body: {
           type: "object",
@@ -225,7 +226,7 @@ export async function gruposRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /grupos/:id/menus/:menu_id
   app.delete<{ Params: { id: string; menu_id: string } }>(
     "/grupos/:id/menus/:menu_id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.grupo())] },
     async (request, reply) => {
       try {
         await gruposService.quitarMenu(

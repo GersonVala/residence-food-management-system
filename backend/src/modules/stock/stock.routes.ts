@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { stockService } from "./stock.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 import { prisma } from "../../shared/prisma/client.js";
 
 async function requirePuedeCargarStock(request: FastifyRequest, reply: FastifyReply) {
@@ -257,7 +258,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/stock",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.param())] },
     async (request, reply) => {
       const stock = await stockService.listarStock(Number(request.params.residencia_id));
       return reply.status(200).send(stock);
@@ -266,7 +267,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { id: string } }>(
     "/stock/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.stock())] },
     async (request, reply) => {
       try {
         const stock = await stockService.obtenerStock(Number(request.params.id));
@@ -289,7 +290,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/stock",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requirePuedeCargarStock],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requirePuedeCargarStock, requireMismaResidencia(residenciaDe.param())],
       schema: {
         body: {
           type: "object",
@@ -330,7 +331,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/stock/:id",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.stock())],
       schema: {
         body: {
           type: "object",
@@ -361,7 +362,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete<{ Params: { id: string } }>(
     "/stock/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.stock())] },
     async (request, reply) => {
       try {
         await stockService.eliminarStock(Number(request.params.id));
@@ -378,7 +379,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/stock/alimento/:alimento_id/minimo",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param())],
       schema: {
         body: {
           type: "object",
@@ -408,7 +409,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { stock_id: string } }>(
     "/stock/:stock_id/movimientos",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.stock("stock_id"))] },
     async (request, reply) => {
       try {
         const movimientos = await stockService.listarMovimientos(Number(request.params.stock_id));
@@ -431,7 +432,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/stock/:stock_id/movimientos",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.stock("stock_id"))],
       schema: {
         body: {
           type: "object",
@@ -490,7 +491,7 @@ export async function stockRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/stock/:stock_id/entrada",
     {
-      preHandler: [authMiddleware, requireRoles("RESIDENTE"), requirePuedeCargarStock],
+      preHandler: [authMiddleware, requireRoles("RESIDENTE"), requirePuedeCargarStock, requireMismaResidencia(residenciaDe.param()), requireMismaResidencia(residenciaDe.stock("stock_id"))],
       schema: {
         body: {
           type: "object",

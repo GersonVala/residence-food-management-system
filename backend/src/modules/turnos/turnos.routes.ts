@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { turnosService } from "./turnos.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { requireMismaResidencia, residenciaDe } from "../../shared/middlewares/residencia-scope.middleware.js";
 import { prisma } from "../../shared/prisma/client.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
@@ -16,7 +17,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // GET /residencias/:residencia_id/turnos
   app.get<{ Params: { residencia_id: string } }>(
     "/residencias/:residencia_id/turnos",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.param())] },
     async (request, reply) => {
       try {
         const turnos = await turnosService.listar(Number(request.params.residencia_id));
@@ -30,7 +31,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // GET /turnos/:id
   app.get<{ Params: { id: string } }>(
     "/turnos/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.turno())] },
     async (request, reply) => {
       try {
         const turno = await turnosService.obtener(Number(request.params.id));
@@ -48,7 +49,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/residencias/:residencia_id/turnos",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.param()), requireMismaResidencia(residenciaDe.grupoEnBody())],
       schema: {
         body: {
           type: "object",
@@ -85,7 +86,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /turnos/:id
   app.delete<{ Params: { id: string } }>(
     "/turnos/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.turno())] },
     async (request, reply) => {
       try {
         await turnosService.cancelar(Number(request.params.id));
@@ -103,7 +104,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/turnos/:id/selecciones",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.turno()), requireMismaResidencia(residenciaDe.residenteEnBody()), requireMismaResidencia(residenciaDe.menuEnBody())],
       schema: {
         body: {
           type: "object",
@@ -142,7 +143,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/selecciones/:id/confirmar",
     {
-      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")],
+      preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.seleccion())],
     },
     async (request, reply) => {
       try {
@@ -165,10 +166,18 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // PATCH /selecciones/:id/revertir
   app.patch<{ Params: { id: string } }>(
     "/selecciones/:id/revertir",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA", "RESIDENTE"), requireMismaResidencia(residenciaDe.seleccion())] },
     async (request, reply) => {
       try {
-        const seleccion = await turnosService.revertirSeleccion(Number(request.params.id));
+        const seleccion_id = Number(request.params.id);
+        if (request.usuario.role === "RESIDENTE") {
+          const sel = await turnosService.obtenerSeleccion(seleccion_id);
+          const residente = await prisma.residente.findUnique({ where: { user_id: request.usuario.id } });
+          if (!sel || !residente || sel.residente_id !== residente.id) {
+            return reply.status(403).send({ error: "Forbidden", mensaje: "Solo podés deshacer tus propias selecciones" });
+          }
+        }
+        const seleccion = await turnosService.revertirSeleccion(seleccion_id);
         return reply.status(200).send(seleccion);
       } catch (err) {
         return handleError(err, reply);
@@ -179,7 +188,7 @@ export async function turnosRoutes(app: FastifyInstance): Promise<void> {
   // DELETE /selecciones/:id
   app.delete<{ Params: { id: string } }>(
     "/selecciones/:id",
-    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA")] },
+    { preHandler: [authMiddleware, requireRoles("ADMIN_GLOBAL", "ADMIN_RESIDENCIA"), requireMismaResidencia(residenciaDe.seleccion())] },
     async (request, reply) => {
       try {
         await turnosService.eliminarSeleccion(Number(request.params.id));
