@@ -27,7 +27,11 @@ export type ResidenteListado = Residente & {
   user: { email: string };
 };
 
-export type ResidenteDetalle = Residente & {
+export type ResidenteConGrupos = Residente & {
+  grupos: { grupo: { id: number; nombre: string } }[];
+};
+
+export type ResidenteDetalle =Residente & {
   residencia: Pick<Residencia, "id" | "nombre" | "ciudad" | "provincia">;
   user: { email: string };
   motivo_baja: string | null;
@@ -50,9 +54,19 @@ export const residentesRepository = {
     }) as Promise<ResidenteListado[]>;
   },
 
-  findAllByResidencia(residencia_id: number, soloActivos = false): Promise<Residente[]> {
+  findAllByResidencia(residencia_id: number, soloActivos = false): Promise<ResidenteConGrupos[]> {
     return prisma.residente.findMany({
       where: { residencia_id, ...(soloActivos ? { activo: true } : {}) },
+      // Misma definición de "membresía activa" que gruposRepository.findIntegranteEnCualquierGrupo
+      // (egreso nulo + grupo activo): se resuelve en el mismo query para evitar un N+1 por residente.
+      include: {
+        grupos: {
+          where: { fecha_egreso: null, grupo: { activo: true } },
+          select: { grupo: { select: { id: true, nombre: true } } },
+          orderBy: { fecha_ingreso: "desc" },
+          take: 1,
+        },
+      },
       orderBy: [{ activo: "desc" }, { apellido: "asc" }, { nombre: "asc" }],
     });
   },
