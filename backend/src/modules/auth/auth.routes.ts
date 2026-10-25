@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { authService } from "./auth.service.js";
 import { authMiddleware, authPermitePrimerLogin } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { MIN_PASSWORD_LENGTH } from "../../shared/utils/password.js";
 
 const MENSAJE_RATE_LIMIT = "Demasiados intentos. Esperá un minuto antes de volver a intentar.";
 
@@ -75,7 +76,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
           required: ["password_actual", "password_nuevo"],
           properties: {
             password_actual: { type: "string", minLength: 1 },
-            password_nuevo: { type: "string", minLength: 6 },
+            password_nuevo: { type: "string", minLength: MIN_PASSWORD_LENGTH },
           },
           additionalProperties: false,
         },

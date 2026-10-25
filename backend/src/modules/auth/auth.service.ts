@@ -1,11 +1,10 @@
 import bcrypt from "bcrypt";
 import type { FastifyInstance } from "fastify";
 import { authRepository } from "./auth.repository.js";
-import { generarPasswordTemporal } from "../../shared/utils/password.js";
+import { generarPasswordTemporal, MIN_PASSWORD_LENGTH } from "../../shared/utils/password.js";
 import type { JwtPayload } from "../../shared/middlewares/auth.middleware.js";
 
 const SALT_ROUNDS = 10;
-const MIN_PASSWORD_LENGTH = 6;
 
 export type LoginResult = {
   token: string;

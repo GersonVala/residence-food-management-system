@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { usuariosService } from "./usuarios.service.js";
 import { authMiddleware } from "../../shared/middlewares/auth.middleware.js";
 import { requireRoles } from "../../shared/middlewares/roles.middleware.js";
+import { MIN_PASSWORD_LENGTH } from "../../shared/utils/password.js";
 
 function handleError(err: unknown, reply: FastifyReply) {
   const e = err as { statusCode?: number; error?: string; mensaje?: string };
@@ -26,7 +27,12 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
 
   // POST /usuarios
   app.post<{
-    Body: { email: string; role: "ADMIN_GLOBAL" | "ADMIN_RESIDENCIA"; residencia_id?: number | null };
+    Body: {
+      email: string;
+      password: string;
+      role: "ADMIN_GLOBAL" | "ADMIN_RESIDENCIA";
+      residencia_id?: number | null;
+    };
   }>(
     "/usuarios",
     {
@@ -34,9 +40,10 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         body: {
           type: "object",
-          required: ["email", "role"],
+          required: ["email", "password", "role"],
           properties: {
             email: { type: "string", format: "email" },
+            password: { type: "string", minLength: MIN_PASSWORD_LENGTH },
             role: { type: "string", enum: ["ADMIN_GLOBAL", "ADMIN_RESIDENCIA"] },
             residencia_id: { type: ["integer", "null"], minimum: 1 },
           },
@@ -46,8 +53,8 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
-        const result = await usuariosService.crear(request.body);
-        return reply.status(201).send(result);
+        const usuario = await usuariosService.crear(request.body);
+        return reply.status(201).send(usuario);
       } catch (err) {
         return handleError(err, reply);
       }
