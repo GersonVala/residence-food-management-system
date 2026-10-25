@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 import { usuariosRepository, type UsuarioAdmin } from "./usuarios.repository.js";
 import { residenciasRepository } from "../residencias/residencias.repository.js";
-import { generarPasswordTemporal } from "../../shared/utils/password.js";
 import type { Role } from "@prisma/client";
 
 function notFound(): never {
@@ -33,9 +32,10 @@ export const usuariosService = {
 
   async crear(data: {
     email: string;
+    password: string;
     role: Role;
     residencia_id?: number | null;
-  }): Promise<{ usuario: UsuarioAdmin; password_temporal: string }> {
+  }): Promise<UsuarioAdmin> {
     const existente = await usuariosRepository.findByEmail(data.email);
     if (existente) conflict("Ya existe un usuario con ese email");
 
@@ -58,17 +58,15 @@ export const usuariosService = {
       });
     }
 
-    const password_temporal = generarPasswordTemporal();
-    const password_hash = await bcrypt.hash(password_temporal, 10);
+    // La elige el admin que da el alta; first_login (default del repo) obliga a cambiarla al entrar.
+    const password_hash = await bcrypt.hash(data.password, 10);
 
-    const usuario = await usuariosRepository.create({
+    return usuariosRepository.create({
       email: data.email,
       password_hash,
       role: data.role,
       residencia_id: data.residencia_id ?? null,
     });
-
-    return { usuario, password_temporal };
   },
 
   async actualizar(

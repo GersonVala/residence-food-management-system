@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 import { residentesRepository, type CreateResidenteData, type UpdateResidenteData, type ResidenteListado, type ResidenteDetalle } from "./residentes.repository.js";
 import { residenciasRepository } from "../residencias/residencias.repository.js";
-import { generarPasswordTemporal } from "../../shared/utils/password.js";
 import type { Residente } from "@prisma/client";
 
 
@@ -53,8 +52,9 @@ export const residentesService = {
     const emailExistente = await residentesRepository.findByEmail(data.email);
     if (emailExistente) conflict("Ya existe un usuario con ese email");
 
-    // Contraseña temporal aleatoria (nunca el DNI): se devuelve una sola vez al admin.
-    const password_temporal = generarPasswordTemporal();
+    // La contraseña inicial es el DNI: el residente ya lo conoce y first_login lo obliga a cambiarla.
+    // Se sigue devolviendo como password_temporal para que el admin pueda comunicarla.
+    const password_temporal = data.dni.trim();
     const password_hash = await bcrypt.hash(password_temporal, 10);
     const residente = await residentesRepository.create(data, password_hash);
     return { ...residente, password_temporal };

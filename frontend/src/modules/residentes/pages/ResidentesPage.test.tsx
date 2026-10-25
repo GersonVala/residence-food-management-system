@@ -43,19 +43,20 @@ describe('ResidentesPage — alta de residente', () => {
     setToken(tokenDeAdminResidencia())
   })
 
-  it('muestra la contraseña temporal una sola vez tras crear el residente', async () => {
+  it('muestra la contraseña inicial (el DNI) una sola vez tras crear el residente', async () => {
     const user = userEvent.setup()
-    apiPost.mockResolvedValueOnce({ id: 99, nombre: 'Juan', password_temporal: 'Zx7kQm4Rt2' })
+    apiPost.mockResolvedValueOnce({ id: 99, nombre: 'Juan', password_temporal: '12345678' })
     render(<MemoryRouter><ResidentesPage /></MemoryRouter>)
 
     await user.click(await screen.findByRole('button', { name: /nuevo residente/i }))
     const form = await completarFormulario(user)
     await user.click(form.getByRole('button', { name: /^crear$/i }))
 
-    expect(await screen.findByText('Zx7kQm4Rt2')).toBeInTheDocument()
+    expect(await screen.findByText('12345678')).toBeInTheDocument()
+    expect(screen.getByText(/es su dni/i)).toBeInTheDocument()
     expect(screen.getByText(/no se vuelve a mostrar/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /listo/i }))
-    expect(screen.queryByText('Zx7kQm4Rt2')).not.toBeInTheDocument()
+    expect(screen.queryByText('12345678')).not.toBeInTheDocument()
   })
 })

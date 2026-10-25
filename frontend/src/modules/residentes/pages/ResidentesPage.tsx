@@ -373,7 +373,7 @@ export default function ResidentesPage() {
       <Modal open={modalOpen} onClose={cerrarModal} title={credencial ? 'Residente creado' : 'Nuevo residente'}>
         {credencial ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">Contraseña temporal de <strong>{credencial.email}</strong>:</p>
+            <p className="text-sm text-gray-600">Contraseña inicial de <strong>{credencial.email}</strong> (es su DNI):</p>
             <PasswordTemporal password={credencial.password} destinatario="al residente" onClose={cerrarModal} />
           </div>
         ) : (

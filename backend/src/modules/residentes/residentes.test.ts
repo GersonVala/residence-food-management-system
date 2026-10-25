@@ -136,7 +136,7 @@ describe("POST /residencias/:residencia_id/residentes", () => {
     expect(user?.first_login).toBe(true);
   });
 
-  it("devuelve una contraseña temporal aleatoria (no el DNI) con la que el residente puede entrar", async () => {
+  it("usa el DNI como contraseña inicial: el residente entra con el DNI y debe cambiarla (first_login)", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
     const residencia = await crearResidencia();
@@ -147,19 +147,32 @@ describe("POST /residencias/:residencia_id/residentes", () => {
       .send(residenteBase);
 
     expect(res.status).toBe(201);
-    expect(res.body.password_temporal).toHaveLength(10);
-    expect(res.body.password_temporal).not.toBe(residenteBase.dni);
+    expect(res.body.password_temporal).toBe(residenteBase.dni);
 
     const conDni = await supertest(app.server)
       .post("/auth/login")
       .send({ email: residenteBase.email, password: residenteBase.dni });
-    expect(conDni.status).toBe(401);
+    expect(conDni.status).toBe(200);
+    expect(conDni.body.primer_login).toBe(true);
+  });
 
-    const conTemporal = await supertest(app.server)
+  it("ignora espacios alrededor del DNI al armar la contraseña inicial", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, dni: `  ${residenteBase.dni} ` });
+
+    expect(res.status).toBe(201);
+    expect(res.body.password_temporal).toBe(residenteBase.dni);
+
+    const conDni = await supertest(app.server)
       .post("/auth/login")
-      .send({ email: residenteBase.email, password: res.body.password_temporal });
-    expect(conTemporal.status).toBe(200);
-    expect(conTemporal.body.primer_login).toBe(true);
+      .send({ email: residenteBase.email, password: residenteBase.dni });
+    expect(conDni.status).toBe(200);
   });
 
   it("retorna 409 si el DNI ya existe", async () => {

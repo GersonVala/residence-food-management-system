@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
-import { PasswordTemporal } from '@/components/ui/password-temporal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { UserCog } from 'lucide-react'
+
+// Espejo de MIN_PASSWORD_LENGTH del backend (no hay paquete compartido entre workspaces).
+const MIN_PASSWORD_LENGTH = 6
 
 interface Residencia {
   id: number
@@ -34,12 +36,12 @@ export default function VoluntariosPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState({
     email: '',
+    password: '',
     role: 'ADMIN_RESIDENCIA' as 'ADMIN_GLOBAL' | 'ADMIN_RESIDENCIA',
     residencia_id: '',
   })
   const [createSaving, setCreateSaving] = useState(false)
   const [createError, setCreateError] = useState('')
-  const [passwordTemporal, setPasswordTemporal] = useState('')
 
   // Modal editar
   const [editOpen, setEditOpen] = useState(false)
@@ -62,19 +64,23 @@ export default function VoluntariosPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
+    if (createForm.password.length < MIN_PASSWORD_LENGTH) {
+      setCreateError(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`)
+      return
+    }
     setCreateSaving(true)
     setCreateError('')
     try {
       const body: Record<string, unknown> = {
         email: createForm.email,
+        password: createForm.password,
         role: createForm.role,
       }
       if (createForm.residencia_id) {
         body.residencia_id = Number(createForm.residencia_id)
       }
-      const result = await api.post<{ usuario: UsuarioAdmin; password_temporal: string }>('/usuarios', body)
-      setPasswordTemporal(result.password_temporal)
-      setCreateForm({ email: '', role: 'ADMIN_RESIDENCIA', residencia_id: '' })
+      await api.post<UsuarioAdmin>('/usuarios', body)
+      closeCreateModal()
       load()
     } catch (err: unknown) {
       const e = err as { mensaje?: string }
@@ -123,9 +129,8 @@ export default function VoluntariosPage() {
 
   function closeCreateModal() {
     setCreateOpen(false)
-    setPasswordTemporal('')
     setCreateError('')
-    setCreateForm({ email: '', role: 'ADMIN_RESIDENCIA', residencia_id: '' })
+    setCreateForm({ email: '', password: '', role: 'ADMIN_RESIDENCIA', residencia_id: '' })
   }
 
   const selectClass = "w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -207,57 +212,67 @@ export default function VoluntariosPage() {
 
       {/* Modal crear */}
       <Modal open={createOpen} onClose={closeCreateModal} title="Nuevo usuario administrativo">
-        {passwordTemporal ? (
-          <PasswordTemporal password={passwordTemporal} destinatario="a la persona" onClose={closeCreateModal} />
-        ) : (
-          <form onSubmit={handleCreate} className="space-y-3">
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor="create-email">Email</Label>
+            <Input
+              id="create-email"
+              type="email"
+              value={createForm.email}
+              onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="create-password">Contraseña inicial</Label>
+            <Input
+              id="create-password"
+              type="password"
+              autoComplete="new-password"
+              value={createForm.password}
+              onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
+              required
+            />
+            <p className="text-xs text-gray-500">
+              Mínimo {MIN_PASSWORD_LENGTH} caracteres. La persona va a tener que cambiarla en su primer ingreso.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="create-role">Rol</Label>
+            <select
+              id="create-role"
+              value={createForm.role}
+              onChange={e => setCreateForm(f => ({ ...f, role: e.target.value as typeof f.role, residencia_id: '' }))}
+              className={selectClass}
+            >
+              <option value="ADMIN_RESIDENCIA">Voluntario (Admin Residencia)</option>
+              <option value="ADMIN_GLOBAL">Admin Global</option>
+            </select>
+          </div>
+          {createForm.role === 'ADMIN_RESIDENCIA' && (
             <div className="space-y-1">
-              <Label htmlFor="create-email">Email</Label>
-              <Input
-                id="create-email"
-                type="email"
-                value={createForm.email}
-                onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="create-role">Rol</Label>
+              <Label htmlFor="create-residencia">Residencia (opcional)</Label>
               <select
-                id="create-role"
-                value={createForm.role}
-                onChange={e => setCreateForm(f => ({ ...f, role: e.target.value as typeof f.role, residencia_id: '' }))}
+                id="create-residencia"
+                value={createForm.residencia_id}
+                onChange={e => setCreateForm(f => ({ ...f, residencia_id: e.target.value }))}
                 className={selectClass}
               >
-                <option value="ADMIN_RESIDENCIA">Voluntario (Admin Residencia)</option>
-                <option value="ADMIN_GLOBAL">Admin Global</option>
+                <option value="">Sin asignar</option>
+                {residencias.filter(r => r).map(r => (
+                  <option key={r.id} value={r.id}>{r.nombre} — {r.ciudad}</option>
+                ))}
               </select>
             </div>
-            {createForm.role === 'ADMIN_RESIDENCIA' && (
-              <div className="space-y-1">
-                <Label htmlFor="create-residencia">Residencia (opcional)</Label>
-                <select
-                  id="create-residencia"
-                  value={createForm.residencia_id}
-                  onChange={e => setCreateForm(f => ({ ...f, residencia_id: e.target.value }))}
-                  className={selectClass}
-                >
-                  <option value="">Sin asignar</option>
-                  {residencias.filter(r => r).map(r => (
-                    <option key={r.id} value={r.id}>{r.nombre} — {r.ciudad}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {createError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{createError}</p>}
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={closeCreateModal}>Cancelar</Button>
-              <Button type="submit" className="flex-1" disabled={createSaving}>
-                {createSaving ? 'Creando...' : 'Crear'}
-              </Button>
-            </div>
-          </form>
-        )}
+          )}
+          {createError && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{createError}</p>}
+          <div className="flex gap-2 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={closeCreateModal}>Cancelar</Button>
+            <Button type="submit" className="flex-1" disabled={createSaving}>
+              {createSaving ? 'Creando...' : 'Crear'}
+            </Button>
+          </div>
+        </form>
       </Modal>
 
       {/* Modal reasignar residencia */}
