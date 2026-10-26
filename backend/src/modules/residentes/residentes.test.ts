@@ -109,6 +109,108 @@ describe("GET /residencias/:residencia_id/residentes", () => {
     expect(res.body).toHaveLength(1);
     expect(res.body[0].nombre).toBe("Juan");
   });
+
+  describe("grupo_actual", () => {
+    let secuencia = 0;
+
+    // Crea el residente directo en DB: el endpoint POST no permite varios con datos únicos sin repetir boilerplate.
+    async function crearResidenteDirecto(residencia_id: number, nombre: string) {
+      secuencia += 1;
+      const hash = await bcrypt.hash("password123", 10);
+      const user = await prisma.user.create({
+        data: { email: `res-${secuencia}-${Date.now()}@test.com`, password_hash: hash, role: "RESIDENTE", residencia_id },
+      });
+      return prisma.residente.create({
+        data: {
+          user_id: user.id,
+          residencia_id,
+          nombre,
+          apellido: "Test",
+          dni: `9000000${secuencia}`,
+          edad: 21,
+          universidad: "UBA",
+          carrera: "Ingeniería",
+          ciudad_origen: "Córdoba",
+          provincia_origen: "Córdoba",
+          fecha_ingreso: new Date("2024-03-01"),
+        },
+      });
+    }
+
+    async function listar(residencia_id: number) {
+      const admin = await crearAdmin();
+      const token = await login(admin.email);
+      const res = await supertest(app.server)
+        .get(`/residencias/${residencia_id}/residentes`)
+        .set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      return res.body as Array<{ nombre: string; grupo_actual: { id: number; nombre: string } | null; grupos?: unknown }>;
+    }
+
+    it("es null para un residente sin grupo", async () => {
+      const residencia = await crearResidencia();
+      await crearResidenteDirecto(residencia.id, "Libre");
+
+      const body = await listar(residencia.id);
+
+      expect(body).toHaveLength(1);
+      expect(body[0].grupo_actual).toBeNull();
+    });
+
+    it("devuelve {id, nombre} del grupo activo en el que está el residente", async () => {
+      const residencia = await crearResidencia();
+      const residente = await crearResidenteDirecto(residencia.id, "Asignado");
+      const grupo = await prisma.grupoCocina.create({ data: { nombre: "Grupo A", residencia_id: residencia.id } });
+      await prisma.grupoIntegrante.create({ data: { grupo_id: grupo.id, residente_id: residente.id } });
+
+      const body = await listar(residencia.id);
+
+      expect(body[0].grupo_actual).toEqual({ id: grupo.id, nombre: "Grupo A" });
+      // La relación cruda no se filtra al cliente: solo el campo derivado.
+      expect(body[0]).not.toHaveProperty("grupos");
+    });
+
+    it("es null si la membresía tiene fecha_egreso", async () => {
+      const residencia = await crearResidencia();
+      const residente = await crearResidenteDirecto(residencia.id, "Egresado");
+      const grupo = await prisma.grupoCocina.create({ data: { nombre: "Grupo A", residencia_id: residencia.id } });
+      await prisma.grupoIntegrante.create({
+        data: { grupo_id: grupo.id, residente_id: residente.id, fecha_egreso: new Date() },
+      });
+
+      const body = await listar(residencia.id);
+
+      expect(body[0].grupo_actual).toBeNull();
+    });
+
+    it("es null si el grupo está inactivo", async () => {
+      const residencia = await crearResidencia();
+      const residente = await crearResidenteDirecto(residencia.id, "GrupoDisuelto");
+      const grupo = await prisma.grupoCocina.create({
+        data: { nombre: "Grupo disuelto", residencia_id: residencia.id, activo: false },
+      });
+      await prisma.grupoIntegrante.create({ data: { grupo_id: grupo.id, residente_id: residente.id } });
+
+      const body = await listar(residencia.id);
+
+      expect(body[0].grupo_actual).toBeNull();
+    });
+
+    it("ignora membresías viejas y devuelve la actual", async () => {
+      const residencia = await crearResidencia();
+      const residente = await crearResidenteDirecto(residencia.id, "Rotado");
+      const viejo = await prisma.grupoCocina.create({ data: { nombre: "Viejo", residencia_id: residencia.id } });
+      const actual = await prisma.grupoCocina.create({ data: { nombre: "Actual", residencia_id: residencia.id } });
+      await prisma.grupoIntegrante.create({
+        data: { grupo_id: viejo.id, residente_id: residente.id, fecha_egreso: new Date() },
+      });
+      await prisma.grupoIntegrante.create({ data: { grupo_id: actual.id, residente_id: residente.id } });
+
+      const body = await listar(residencia.id);
+
+      expect(body[0].grupo_actual).toEqual({ id: actual.id, nombre: "Actual" });
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

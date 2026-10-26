@@ -45,6 +45,8 @@ interface ResidenteBasico {
   nombre: string
   apellido: string
   activo: boolean
+  // Grupo activo al que ya pertenece (puede ser este mismo); null si está libre.
+  grupo_actual: { id: number; nombre: string } | null
 }
 
 interface SeleccionHistorial {
@@ -231,10 +233,13 @@ export default function GrupoDetailPage() {
     }
   }
 
-  const residentesFiltrados = residentes.filter(r =>
-    `${r.nombre} ${r.apellido}`.toLowerCase().includes(busqueda.toLowerCase())
-  )
-  const yaEsIntegrante = (residenteId: number) => integrantes.some(i => i.residente_id === residenteId)
+  const yaEsIntegrante = (r: ResidenteBasico) =>
+    r.grupo_actual?.id === grupoId || integrantes.some(i => i.residente_id === r.id)
+  // Libres primero, luego los de otro grupo y al final los de este grupo; sort estable conserva el orden alfabético del backend.
+  const prioridad = (r: ResidenteBasico) => (yaEsIntegrante(r) ? 2 : r.grupo_actual ? 1 : 0)
+  const residentesFiltrados = residentes
+    .filter(r => `${r.nombre} ${r.apellido}`.toLowerCase().includes(busqueda.toLowerCase()))
+    .sort((a, b) => prioridad(a) - prioridad(b))
 
   if (loading) {
     return (
@@ -580,15 +585,20 @@ export default function GrupoDetailPage() {
             {residentesFiltrados.length === 0 ? (
               <li className="py-6 text-center text-sm text-gray-400">Sin resultados</li>
             ) : residentesFiltrados.map(r => {
-              const esIntegrante = yaEsIntegrante(r.id)
+              const esIntegrante = yaEsIntegrante(r)
+              const otroGrupo = esIntegrante ? null : r.grupo_actual
               return (
-                <li key={r.id} className={`flex items-center justify-between gap-3 py-2.5 ${esIntegrante ? 'opacity-50' : ''}`}>
+                <li key={r.id} className={`flex items-center justify-between gap-3 py-2.5 ${esIntegrante || otroGrupo ? 'opacity-50' : ''}`}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Avatar nombre={r.nombre} apellido={r.apellido} size="sm" />
                     <span className="text-sm text-gray-800 font-medium truncate">{r.nombre} {r.apellido}</span>
                   </div>
                   {esIntegrante ? (
                     <Badge variant="secondary" className="text-xs shrink-0">Ya es integrante</Badge>
+                  ) : otroGrupo ? (
+                    <Badge variant="secondary" className="text-xs max-w-[55%]" title={otroGrupo.nombre}>
+                      <span className="truncate">Ya está en «{otroGrupo.nombre}»</span>
+                    </Badge>
                   ) : (
                     <Button
                       size="sm"

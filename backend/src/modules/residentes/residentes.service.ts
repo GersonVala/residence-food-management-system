@@ -3,6 +3,7 @@ import { residentesRepository, type CreateResidenteData, type UpdateResidenteDat
 import { residenciasRepository } from "../residencias/residencias.repository.js";
 import type { Residente } from "@prisma/client";
 
+type ResidenteConGrupoActual = Residente & { grupo_actual: { id: number; nombre: string } | null };
 
 function notFound(): never {
   throw Object.assign(new Error("Residente no encontrado"), {
@@ -26,8 +27,14 @@ export const residentesService = {
     return residentesRepository.findAll();
   },
 
-  async listar(residencia_id: number): Promise<Residente[]> {
-    return residentesRepository.findAllByResidencia(residencia_id);
+  // Se expone grupo_actual (y no la relación cruda) para que la UI de armado de grupos
+  // pueda mostrar de antemano quién ya pertenece a otro grupo.
+  async listar(residencia_id: number): Promise<ResidenteConGrupoActual[]> {
+    const residentes = await residentesRepository.findAllByResidencia(residencia_id);
+    return residentes.map(({ grupos, ...residente }) => ({
+      ...residente,
+      grupo_actual: grupos[0]?.grupo ?? null,
+    }));
   },
 
   async obtener(id: number): Promise<ResidenteDetalle> {
