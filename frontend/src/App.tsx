@@ -33,8 +33,10 @@ export default function App() {
       <Route path="/change-password" element={<ChangePasswordPage />} />
       <Route element={<AppLayout />}>
         {/* Admin routes */}
-        <Route element={<RequireRole roles={['ADMIN_GLOBAL', 'ADMIN_RESIDENCIA']} />}>
+        <Route element={<RequireRole roles={['ADMIN_RESIDENCIA']} />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+        </Route>
+        <Route element={<RequireRole roles={['ADMIN_GLOBAL', 'ADMIN_RESIDENCIA']} />}>
           <Route path="/mi-perfil-admin" element={<AdminPerfilPage />} />
         </Route>
         <Route element={<RequireRole roles={['ADMIN_GLOBAL']} />}>

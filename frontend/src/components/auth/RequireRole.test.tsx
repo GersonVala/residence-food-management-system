@@ -55,6 +55,30 @@ describe('RequireRole', () => {
     expect(screen.getByText('Contenido protegido')).toBeInTheDocument()
   })
 
+  it('redirige al Administrador Global a /analytics cuando entra a una ruta de otro rol', () => {
+    mockGetToken.mockReturnValue('valid.token.here')
+    mockDecodeToken.mockReturnValue({
+      id: 1,
+      email: 'admin@test.com',
+      role: 'ADMIN_GLOBAL',
+      residencia_id: null,
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route element={<RequireRole roles={['ADMIN_RESIDENCIA']} />}>
+            <Route path="/dashboard" element={<div>Dashboard</div>} />
+          </Route>
+          <Route path="/analytics" element={<div>Analytics</div>} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument()
+    expect(screen.getByText('Analytics')).toBeInTheDocument()
+  })
+
   it('redirige a /dashboard cuando el rol no coincide', () => {
     mockGetToken.mockReturnValue('valid.token.here')
     mockDecodeToken.mockReturnValue({

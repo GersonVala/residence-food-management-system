@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { decodeToken, getToken, isAuthenticated } from '@/modules/auth/auth.utils'
+import { rutaInicio } from '@/modules/auth/auth.rutas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,7 +24,7 @@ export default function ChangePasswordPage() {
       const token = getToken()
       const decoded = token ? decodeToken(token) : null
       const role = (decoded as unknown as { role?: string })?.role
-      navigate(role === 'RESIDENTE' ? '/mi-residencia' : '/dashboard')
+      navigate(rutaInicio(role ?? ''))
     } catch (err: unknown) {
       const e = err as { mensaje?: string }
       setError(e.mensaje ?? 'Error al cambiar la contraseña')

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { setToken, isAuthenticated, getToken, decodeToken } from '@/modules/auth/auth.utils'
+import { rutaInicio } from '@/modules/auth/auth.rutas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,7 +18,7 @@ export default function LoginPage() {
     const token = getToken()
     const decoded = token ? decodeToken(token) : null
     const role = (decoded as unknown as { role?: string })?.role
-    return <Navigate to={role === 'RESIDENTE' ? '/mi-residencia' : '/dashboard'} replace />
+    return <Navigate to={rutaInicio(role ?? '')} replace />
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -30,10 +31,8 @@ export default function LoginPage() {
       setToken(token)
       if (primer_login) {
         navigate('/change-password', { replace: true })
-      } else if (usuario.role === 'RESIDENTE') {
-        navigate('/mi-residencia', { replace: true })
       } else {
-        navigate('/dashboard', { replace: true })
+        navigate(rutaInicio(usuario.role), { replace: true })
       }
     } catch (err: unknown) {
       const e = err as { mensaje?: string }

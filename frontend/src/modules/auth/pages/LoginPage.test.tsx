@@ -75,9 +75,22 @@ describe('LoginPage — submit behavior', () => {
     isAuthMock.mockReturnValue(false)
   })
 
-  it('navigates to /dashboard when primer_login is false', async () => {
+  it('navigates to /analytics when an ADMIN_GLOBAL logs in with primer_login false', async () => {
     const user = userEvent.setup()
     apiPost.mockResolvedValueOnce({ token: 'header.payload.sig', primer_login: false, usuario: { id: 1, email: 'u@u.com', role: 'ADMIN_GLOBAL', residencia_id: null } })
+
+    renderLogin()
+
+    await user.type(screen.getByLabelText(/email/i), 'user@example.com')
+    await user.type(screen.getByLabelText(/contraseña/i), 'secret123')
+    await user.click(screen.getByRole('button', { name: /ingresar/i }))
+
+    expect(navigateMock).toHaveBeenCalledWith('/analytics', { replace: true })
+  })
+
+  it('navigates to /dashboard when an ADMIN_RESIDENCIA logs in with primer_login false', async () => {
+    const user = userEvent.setup()
+    apiPost.mockResolvedValueOnce({ token: 'header.payload.sig', primer_login: false, usuario: { id: 2, email: 'v@u.com', role: 'ADMIN_RESIDENCIA', residencia_id: 1 } })
 
     renderLogin()
 
