@@ -9,7 +9,7 @@ import {
 type NavItem = { to: string; icon: LucideIcon; label: string; roles?: string[] }
 
 const adminNavItems: NavItem[] = [
-  { to: '/dashboard', icon: Home, label: 'Dashboard' },
+  { to: '/dashboard', icon: Home, label: 'Dashboard', roles: ['ADMIN_RESIDENCIA'] },
   { to: '/analytics', icon: BarChart2, label: 'Analytics', roles: ['ADMIN_GLOBAL'] },
   { to: '/residencias', icon: Building2, label: 'Residencias', roles: ['ADMIN_GLOBAL'] },
   { to: '/voluntarios', icon: UserCog, label: 'Voluntarios y Admins', roles: ['ADMIN_GLOBAL'] },
