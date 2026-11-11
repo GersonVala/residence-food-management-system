@@ -38,4 +38,12 @@ describe('AnalyticsPage — residencias activas', () => {
     expect(await screen.findByRole('img', { name: '18 de 22 residencias activas' })).toBeInTheDocument()
     expect(screen.getByText('4 dadas de baja')).toBeInTheDocument()
   })
+
+  it('no muestra las tarjetas de cocciones confirmadas ni de personas alimentadas', async () => {
+    render(<AnalyticsPage />)
+
+    expect(await screen.findByText('Residentes activos')).toBeInTheDocument()
+    expect(screen.queryByText('Cocciones confirmadas')).not.toBeInTheDocument()
+    expect(screen.queryByText('Personas alimentadas')).not.toBeInTheDocument()
+  })
 })
