@@ -198,6 +198,87 @@ describe("POST /residencias/:residencia_id/turnos", () => {
     expect(res.status).toBe(409);
   });
 
+  it("retorna 409 si otro grupo ya cocina en esa fecha y franja", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const grupo1 = await crearGrupo(residencia.id);
+    const grupo2 = await crearGrupo(residencia.id);
+
+    await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo1.id, fecha: "2025-06-01", franja: "CENA", tipo: "ROTATIVO" });
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo2.id, fecha: "2025-06-01", franja: "CENA", tipo: "ROTATIVO" });
+
+    expect(res.status).toBe(409);
+  });
+
+  it("permite otro grupo en la misma fecha si la franja es distinta", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const grupo1 = await crearGrupo(residencia.id);
+    const grupo2 = await crearGrupo(residencia.id);
+
+    await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo1.id, fecha: "2025-06-01", franja: "CENA", tipo: "ROTATIVO" });
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo2.id, fecha: "2025-06-01", franja: "ALMUERZO", tipo: "ROTATIVO" });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("retorna 409 si otro grupo ya tiene un turno fijo ese día y franja", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const grupo1 = await crearGrupo(residencia.id);
+    const grupo2 = await crearGrupo(residencia.id);
+
+    await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo1.id, dia_semana: 1, franja: "CENA", tipo: "FIJO" });
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo2.id, dia_semana: 1, franja: "CENA", tipo: "FIJO" });
+
+    expect(res.status).toBe(409);
+  });
+
+  it("retorna 409 si se carga un rotativo el mismo día y franja que un turno fijo", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const grupo1 = await crearGrupo(residencia.id);
+    const grupo2 = await crearGrupo(residencia.id);
+
+    // 2025-06-02 es lunes (dia_semana 1)
+    await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo1.id, dia_semana: 1, franja: "CENA", tipo: "FIJO" });
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/turnos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ grupo_id: grupo2.id, fecha: "2025-06-02", franja: "CENA", tipo: "ROTATIVO" });
+
+    expect(res.status).toBe(409);
+  });
+
   it("retorna 400 si el grupo no pertenece a la residencia", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
