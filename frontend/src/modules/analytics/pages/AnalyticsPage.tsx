@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid, Legend,
 } from 'recharts'
-import { ChefHat, Users, Building2, TrendingUp, UtensilsCrossed, Filter } from 'lucide-react'
+import { ChefHat, Building2, TrendingUp, UtensilsCrossed, Filter } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -283,8 +283,8 @@ export default function AnalyticsPage() {
       </Card>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[...Array(2)].map((_, i) => (
             <Card key={i}>
               <CardContent className="pt-6">
                 <div className="h-16 bg-gray-100 rounded-lg animate-pulse" />
@@ -295,21 +295,7 @@ export default function AnalyticsPage() {
       ) : data ? (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCard
-              title="Cocciones confirmadas"
-              value={data.stats.total_cocciones.toLocaleString('es-AR')}
-              sub="selecciones en estado CONFIRMADO"
-              icon={ChefHat}
-              color="bg-purple-600"
-            />
-            <KpiCard
-              title="Personas alimentadas"
-              value={data.stats.total_personas_alimentadas.toLocaleString('es-AR')}
-              sub="suma de personas por cocción"
-              icon={Users}
-              color="bg-amber-500"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ResidenciasActivasCard
               activas={data.stats.total_residencias}
               registradas={data.stats.total_residencias_registradas}

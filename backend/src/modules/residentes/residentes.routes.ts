@@ -155,6 +155,8 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
             email: { type: "string", format: "email" },
             // DNI argentino: 8 dígitos (se toleran espacios alrededor, el service los recorta)
             dni: { type: "string", pattern: "^\\s*\\d{8}\\s*$" },
+            // Rango de edad de los residentes de la fundación
+            edad: { type: "integer", minimum: 17, maximum: 26 },
           },
         },
       },

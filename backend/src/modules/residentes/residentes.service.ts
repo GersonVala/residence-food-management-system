@@ -21,6 +21,21 @@ function conflict(mensaje: string): never {
   });
 }
 
+function badRequest(mensaje: string): never {
+  throw Object.assign(new Error(mensaje), {
+    statusCode: 400,
+    error: "Bad Request",
+    mensaje,
+  });
+}
+
+/** La fecha de ingreso puede estar en el futuro, pero como mucho un año después de hoy. */
+function fechaIngresoMaxima(): Date {
+  const maxima = new Date();
+  maxima.setFullYear(maxima.getFullYear() + 1);
+  return maxima;
+}
+
 export const residentesService = {
   // T-2.2: List all residentes across all residencias (ADMIN_GLOBAL only)
   async listarTodos(): Promise<ResidenteListado[]> {
@@ -51,6 +66,10 @@ export const residentesService = {
         error: "Not Found",
         mensaje: "Residencia no encontrada",
       });
+    }
+
+    if (data.fecha_ingreso > fechaIngresoMaxima()) {
+      badRequest("La fecha de ingreso no puede ser posterior a un año desde hoy");
     }
 
     const existente = await residentesRepository.findByDni(data.dni);

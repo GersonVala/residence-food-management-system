@@ -24,20 +24,20 @@ function tokenDeAdminResidencia(): string {
 
 async function completarFormulario(
   user: ReturnType<typeof userEvent.setup>,
-  { dni = '12345678', area = '11', numero = '55550000' } = {}
+  { dni = '12345678', area = '11', numero = '55550000', edad = '22', fecha = '2024-03-01' } = {}
 ) {
   const form = within(screen.getByRole('dialog'))
   await user.type(form.getByLabelText('Nombre'), 'Juan')
   await user.type(form.getByLabelText('Apellido'), 'Pérez')
   await user.type(form.getByLabelText('Email'), 'juan@test.com')
   await user.type(form.getByLabelText('DNI'), dni)
-  await user.type(form.getByLabelText('Edad'), '22')
+  await user.type(form.getByLabelText('Edad'), edad)
   await user.type(form.getByLabelText('Código de área'), area)
   await user.type(form.getByLabelText('Número de teléfono'), numero)
   await user.type(form.getByLabelText('Universidad'), 'UBA')
   await user.type(form.getByLabelText('Carrera'), 'Ingeniería')
   await user.type(form.getByLabelText('Ciudad de origen'), 'Córdoba')
-  await user.type(form.getByLabelText('Fecha de ingreso'), '2024-03-01')
+  await user.type(form.getByLabelText('Fecha de ingreso'), fecha)
   await user.selectOptions(form.getByLabelText('Provincia de origen'), 'Córdoba')
   return form
 }
@@ -115,5 +115,51 @@ describe('ResidentesPage — alta de residente', () => {
 
     expect(await screen.findByText(/el número de teléfono/i)).toBeInTheDocument()
     expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  it.each(['16', '27'])('no crea el residente si la edad está fuera de 17 a 26 años (%s)', async (edad) => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ResidentesPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /nuevo residente/i }))
+    const form = await completarFormulario(user, { edad })
+    await user.click(form.getByRole('button', { name: /^crear$/i }))
+
+    expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  it('limita la edad a 17-26 años en el campo', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ResidentesPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /nuevo residente/i }))
+    const edad = within(screen.getByRole('dialog')).getByLabelText('Edad')
+
+    expect(edad).toHaveAttribute('min', '17')
+    expect(edad).toHaveAttribute('max', '26')
+  })
+
+  it('no crea el residente si la fecha de ingreso es absurda (año 2600)', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ResidentesPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /nuevo residente/i }))
+    const form = await completarFormulario(user, { fecha: '2600-03-01' })
+    await user.click(form.getByRole('button', { name: /^crear$/i }))
+
+    expect(apiPost).not.toHaveBeenCalled()
+  })
+
+  it('limita la fecha de ingreso a un año desde hoy en el campo', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ResidentesPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: /nuevo residente/i }))
+    const fecha = within(screen.getByRole('dialog')).getByLabelText('Fecha de ingreso')
+    const enUnAnio = new Date()
+    enUnAnio.setFullYear(enUnAnio.getFullYear() + 1)
+    const esperado = `${enUnAnio.getFullYear()}-${String(enUnAnio.getMonth() + 1).padStart(2, '0')}-${String(enUnAnio.getDate()).padStart(2, '0')}`
+
+    expect(fecha).toHaveAttribute('max', esperado)
   })
 })
