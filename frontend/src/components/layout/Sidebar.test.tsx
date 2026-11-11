@@ -25,10 +25,11 @@ function renderSidebar(role: string) {
 describe('Sidebar', () => {
   beforeEach(() => mockDecodeToken.mockReset())
 
-  it('no muestra Dashboard al Administrador Global, que entra por Analytics', () => {
+  it('no muestra Dashboard al Administrador Global, que entra por Estadísticas', () => {
     renderSidebar('ADMIN_GLOBAL')
     expect(screen.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /analytics/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /estadísticas/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /analytics/i })).not.toBeInTheDocument()
   })
 
   it('muestra Dashboard al Administrador de Residencia', () => {

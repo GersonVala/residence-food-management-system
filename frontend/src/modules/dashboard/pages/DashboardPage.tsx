@@ -4,7 +4,7 @@ import { decodeToken, getToken } from '@/modules/auth/auth.utils'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  Building2, Users, CalendarDays, BookOpen,
+  Building2, CalendarDays, BookOpen,
   AlertTriangle, ArrowRight, MapPin, CheckCircle2, CalendarClock
 } from 'lucide-react'
 
@@ -148,14 +148,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Residentes activos"
-          value={residentesActivos}
-          icon={Users}
-          color="text-green-600"
-          sub={`${ocupacion}% de capacidad (${residencia.capacidad_max} lugares)`}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           title="Turnos hoy"
           value={turnosHoy.length}
@@ -197,7 +190,7 @@ export default function DashboardPage() {
             </div>
             <span className="text-sm font-semibold text-gray-700 w-12 text-right">{ocupacion}%</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">{residentesActivos} de {residencia.capacidad_max} lugares ocupados</p>
+          <p className="text-xs text-gray-400 mt-1">{residentesActivos} residentes activos de {residencia.capacidad_max} lugares</p>
         </CardContent>
       </Card>
 

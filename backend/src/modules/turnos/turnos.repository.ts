@@ -57,6 +57,22 @@ export const turnosRepository = {
     });
   },
 
+  /** Turno fijo de cualquier grupo de la residencia en ese día de la semana y franja. */
+  findFijoOcupado(residencia_id: number, dia_semana: number, franja: Franja) {
+    return prisma.turnoCocina.findFirst({
+      where: { residencia_id, dia_semana, franja, tipo: "FIJO", activo: true },
+      include: { grupo: true },
+    });
+  },
+
+  /** Turno rotativo de cualquier grupo de la residencia en esa fecha y franja. */
+  findRotativoOcupado(residencia_id: number, fecha: Date, franja: Franja) {
+    return prisma.turnoCocina.findFirst({
+      where: { residencia_id, fecha, franja, tipo: "ROTATIVO", activo: true },
+      include: { grupo: true },
+    });
+  },
+
   create(data: CreateTurnoInput) {
     return prisma.turnoCocina.create({
       data,

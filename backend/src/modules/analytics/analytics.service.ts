@@ -23,10 +23,11 @@ export const analyticsService = {
     };
 
     // ── 1. Stats globales ──────────────────────────────────────────
-    const [totalCocciones, totalResidencias, totalResidentes, personasResult] =
+    const [totalCocciones, totalResidencias, totalResidenciasRegistradas, totalResidentes, personasResult] =
       await Promise.all([
         prisma.seleccionMenu.count({ where: seleccionWhere }),
         prisma.residencia.count({ where: { activo: true } }),
+        prisma.residencia.count(),
         prisma.residente.count({ where: { activo: true } }),
         prisma.seleccionMenu.aggregate({
           _sum: { personas: true },
@@ -183,6 +184,7 @@ export const analyticsService = {
         total_cocciones: totalCocciones,
         total_personas_alimentadas: personasResult._sum.personas ?? 0,
         total_residencias: totalResidencias,
+        total_residencias_registradas: totalResidenciasRegistradas,
         total_residentes: totalResidentes,
       },
       top_menus: topMenus,

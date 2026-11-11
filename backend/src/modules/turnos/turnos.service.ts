@@ -96,10 +96,18 @@ export const turnosService = {
       if (data.dia_semana === undefined) badRequest("Los turnos fijos requieren dia_semana");
       const existente = await turnosRepository.findFijoConflicto(data.grupo_id, data.dia_semana, data.franja);
       if (existente) conflict("Este grupo ya tiene un turno fijo ese día y franja");
+      // Una franja (almuerzo o cena) la cocina un solo grupo
+      const ocupado = await turnosRepository.findFijoOcupado(data.residencia_id, data.dia_semana, data.franja);
+      if (ocupado) conflict(`Esa franja ya la tiene el grupo ${ocupado.grupo.nombre}`);
     } else {
       if (!data.fecha) badRequest("Los turnos rotativos requieren una fecha");
       const existente = await turnosRepository.findRotativoConflicto(data.grupo_id, data.fecha, data.franja);
       if (existente) conflict("Ya existe un turno para este grupo en esa fecha y franja");
+      // Una franja (almuerzo o cena) la cocina un solo grupo: ni otro rotativo ese día, ni un fijo de ese día de la semana
+      const ocupado =
+        (await turnosRepository.findRotativoOcupado(data.residencia_id, data.fecha, data.franja)) ??
+        (await turnosRepository.findFijoOcupado(data.residencia_id, data.fecha.getUTCDay(), data.franja));
+      if (ocupado) conflict(`Esa franja ya la tiene el grupo ${ocupado.grupo.nombre}`);
     }
 
     return turnosRepository.create(data);

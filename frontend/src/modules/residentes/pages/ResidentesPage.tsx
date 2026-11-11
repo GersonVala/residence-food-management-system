@@ -37,6 +37,47 @@ interface Residente {
   user?: { email: string }
 }
 
+type FormResidente = {
+  email: string; nombre: string; apellido: string; dni: string; edad: string
+  telefono_area: string; telefono_numero: string; universidad: string; carrera: string
+  ciudad_origen: string; provincia_origen: string; fecha_ingreso: string; residencia_id: string
+}
+
+type CampoTexto = {
+  id: 'nombre' | 'apellido' | 'email' | 'dni' | 'edad' | 'universidad' | 'carrera' | 'ciudad_origen' | 'fecha_ingreso'
+  label: string
+  type: string
+  placeholder?: string
+  maxLength?: number
+  inputMode?: 'numeric'
+}
+
+const CAMPOS_RESIDENTE: CampoTexto[] = [
+  { id: 'nombre', label: 'Nombre', type: 'text', placeholder: 'Ej: Juan' },
+  { id: 'apellido', label: 'Apellido', type: 'text', placeholder: 'Ej: Pérez' },
+  { id: 'email', label: 'Email', type: 'email', placeholder: 'Ej: juan.perez@mail.com' },
+  { id: 'dni', label: 'DNI', type: 'text', placeholder: 'Ej: 12345678', maxLength: 8, inputMode: 'numeric' },
+  { id: 'edad', label: 'Edad', type: 'number', placeholder: 'Ej: 20' },
+  { id: 'universidad', label: 'Universidad', type: 'text', placeholder: 'Ej: UBA' },
+  { id: 'carrera', label: 'Carrera', type: 'text', placeholder: 'Ej: Ingeniería en Sistemas' },
+  { id: 'ciudad_origen', label: 'Ciudad de origen', type: 'text', placeholder: 'Ej: Rosario' },
+  { id: 'fecha_ingreso', label: 'Fecha de ingreso', type: 'date' },
+]
+
+const SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$/
+
+/** Devuelve el primer error de validación del alta, o null si el formulario es válido. */
+function validarResidente(form: FormResidente): string | null {
+  if (!SOLO_LETRAS.test(form.nombre.trim())) return 'El nombre solo puede tener letras.'
+  if (!SOLO_LETRAS.test(form.apellido.trim())) return 'El apellido solo puede tener letras.'
+  if (!/^\d{8}$/.test(form.dni.trim())) return 'El DNI debe tener 8 dígitos, sin puntos.'
+  const edad = Number(form.edad)
+  if (!Number.isInteger(edad) || edad < 16 || edad > 99) return 'La edad debe estar entre 16 y 99 años.'
+  if (!/^\d{2,4}$/.test(form.telefono_area.trim())) return 'El código de área debe tener entre 2 y 4 dígitos, sin el 0.'
+  if (!/^\d{6,8}$/.test(form.telefono_numero.trim())) return 'El número de teléfono debe tener entre 6 y 8 dígitos, sin el 15.'
+  return null
+}
+
 interface ResidenciaOpcion {
   id: number
   nombre: string
@@ -54,9 +95,9 @@ export default function ResidentesPage() {
   const [residentes, setResidentes] = useState<Residente[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormResidente>({
     email: '', nombre: '', apellido: '', dni: '', edad: '',
-    telefono: '', universidad: '', carrera: '',
+    telefono_area: '', telefono_numero: '', universidad: '', carrera: '',
     ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: ''
   })
   const [saving, setSaving] = useState(false)
@@ -135,6 +176,24 @@ export default function ResidentesPage() {
     setFiltroEstado('todos')
   }
 
+  function campoInput({ id, label, type, placeholder, maxLength, inputMode }: CampoTexto) {
+    return (
+      <div key={id} className="space-y-1">
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          id={id}
+          type={type}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          inputMode={inputMode}
+          value={form[id]}
+          onChange={e => setForm(f => ({ ...f, [id]: e.target.value }))}
+          required
+        />
+      </div>
+    )
+  }
+
   function cerrarModal() {
     setModalOpen(false)
     setCredencial(null)
@@ -152,6 +211,11 @@ export default function ResidentesPage() {
       setError('Seleccioná una provincia de origen.')
       return
     }
+    const errorValidacion = validarResidente(form)
+    if (errorValidacion) {
+      setError(errorValidacion)
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -159,9 +223,9 @@ export default function ResidentesPage() {
         email: form.email,
         nombre: form.nombre,
         apellido: form.apellido,
-        dni: form.dni,
+        dni: form.dni.trim(),
         edad: Number(form.edad),
-        telefono: form.telefono,
+        telefono: `${form.telefono_area.trim()} ${form.telefono_numero.trim()}`,
         universidad: form.universidad,
         carrera: form.carrera,
         ciudad_origen: form.ciudad_origen,
@@ -169,7 +233,7 @@ export default function ResidentesPage() {
         fecha_ingreso: new Date(form.fecha_ingreso).toISOString()
       })
       setCredencial({ email: form.email, password: creado.password_temporal })
-      setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: '' })
+      setForm({ email: '', nombre: '', apellido: '', dni: '', edad: '', telefono_area: '', telefono_numero: '', universidad: '', carrera: '', ciudad_origen: '', provincia_origen: '', fecha_ingreso: '', residencia_id: '' })
       load()
     } catch (err: unknown) {
       const e = err as { mensaje?: string; message?: string }
@@ -395,29 +459,37 @@ export default function ResidentesPage() {
                 </select>
               </div>
             )}
-            {[
-              { id: 'nombre', label: 'Nombre', type: 'text' },
-              { id: 'apellido', label: 'Apellido', type: 'text' },
-              { id: 'email', label: 'Email', type: 'email' },
-              { id: 'dni', label: 'DNI', type: 'text' },
-              { id: 'edad', label: 'Edad', type: 'number' },
-              { id: 'telefono', label: 'Teléfono', type: 'text' },
-              { id: 'universidad', label: 'Universidad', type: 'text' },
-              { id: 'carrera', label: 'Carrera', type: 'text' },
-              { id: 'ciudad_origen', label: 'Ciudad de origen', type: 'text' },
-              { id: 'fecha_ingreso', label: 'Fecha de ingreso', type: 'date' },
-            ].map(({ id, label, type }) => (
-              <div key={id} className="space-y-1">
-                <Label htmlFor={id}>{label}</Label>
-                <Input
-                  id={id}
-                  type={type}
-                  value={form[id as keyof typeof form]}
-                  onChange={e => setForm(f => ({ ...f, [id]: e.target.value }))}
-                  required
-                />
+            {CAMPOS_RESIDENTE.slice(0, 5).map(campo => campoInput(campo))}
+            <fieldset className="space-y-1">
+              <legend className="text-sm font-medium text-gray-700">Teléfono</legend>
+              <div className="flex gap-2">
+                <div className="w-28 space-y-1">
+                  <Label htmlFor="telefono_area" className="text-xs text-gray-500">Código de área</Label>
+                  <Input
+                    id="telefono_area"
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="Ej: 11"
+                    value={form.telefono_area}
+                    onChange={e => setForm(f => ({ ...f, telefono_area: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor="telefono_numero" className="text-xs text-gray-500">Número de teléfono</Label>
+                  <Input
+                    id="telefono_numero"
+                    inputMode="numeric"
+                    maxLength={8}
+                    placeholder="Ej: 12345678"
+                    value={form.telefono_numero}
+                    onChange={e => setForm(f => ({ ...f, telefono_numero: e.target.value }))}
+                    required
+                  />
+                </div>
               </div>
-            ))}
+            </fieldset>
+            {CAMPOS_RESIDENTE.slice(5).map(campo => campoInput(campo))}
             <div className="space-y-1">
               <Label htmlFor="provincia_origen">Provincia de origen</Label>
               <select

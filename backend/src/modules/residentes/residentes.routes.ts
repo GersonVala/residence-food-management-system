@@ -153,6 +153,8 @@ export async function residentesRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             ...schemaBase.properties,
             email: { type: "string", format: "email" },
+            // DNI argentino: 8 dígitos (se toleran espacios alrededor, el service los recorta)
+            dni: { type: "string", pattern: "^\\s*\\d{8}\\s*$" },
           },
         },
       },
