@@ -290,6 +290,75 @@ describe("POST /residencias/:residencia_id/residentes", () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([16, 27])("retorna 400 si la edad está fuera de 17 a 26 años (%i)", async (edad) => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, edad });
+
+    expect(res.status).toBe(400);
+  });
+
+  it.each([17, 26])("acepta la edad en el límite del rango (%i)", async (edad) => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, edad });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("retorna 400 si la fecha de ingreso es absurda (año 2600)", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, fecha_ingreso: new Date("2600-03-01").toISOString() });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("retorna 400 si la fecha de ingreso supera en más de un año a la fecha actual", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const enDosAnios = new Date();
+    enDosAnios.setFullYear(enDosAnios.getFullYear() + 2);
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, fecha_ingreso: enDosAnios.toISOString() });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("acepta una fecha de ingreso futura dentro del próximo año", async () => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+    const enSeisMeses = new Date();
+    enSeisMeses.setMonth(enSeisMeses.getMonth() + 6);
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, fecha_ingreso: enSeisMeses.toISOString() });
+
+    expect(res.status).toBe(201);
+  });
+
   it("retorna 409 si el DNI ya existe", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);

@@ -50,6 +50,18 @@ type CampoTexto = {
   placeholder?: string
   maxLength?: number
   inputMode?: 'numeric'
+  min?: string
+  max?: string
+}
+
+const EDAD_MINIMA = 17
+const EDAD_MAXIMA = 26
+
+/** Último día admitido como fecha de ingreso: un año después de hoy, en formato AAAA-MM-DD (hora local). */
+function fechaIngresoMaxima(): string {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 const CAMPOS_RESIDENTE: CampoTexto[] = [
@@ -57,7 +69,7 @@ const CAMPOS_RESIDENTE: CampoTexto[] = [
   { id: 'apellido', label: 'Apellido', type: 'text', placeholder: 'Ej: Pérez' },
   { id: 'email', label: 'Email', type: 'email', placeholder: 'Ej: juan.perez@mail.com' },
   { id: 'dni', label: 'DNI', type: 'text', placeholder: 'Ej: 12345678', maxLength: 8, inputMode: 'numeric' },
-  { id: 'edad', label: 'Edad', type: 'number', placeholder: 'Ej: 20' },
+  { id: 'edad', label: 'Edad', type: 'number', placeholder: 'Ej: 20', min: String(EDAD_MINIMA), max: String(EDAD_MAXIMA) },
   { id: 'universidad', label: 'Universidad', type: 'text', placeholder: 'Ej: UBA' },
   { id: 'carrera', label: 'Carrera', type: 'text', placeholder: 'Ej: Ingeniería en Sistemas' },
   { id: 'ciudad_origen', label: 'Ciudad de origen', type: 'text', placeholder: 'Ej: Rosario' },
@@ -72,7 +84,9 @@ function validarResidente(form: FormResidente): string | null {
   if (!SOLO_LETRAS.test(form.apellido.trim())) return 'El apellido solo puede tener letras.'
   if (!/^\d{8}$/.test(form.dni.trim())) return 'El DNI debe tener 8 dígitos, sin puntos.'
   const edad = Number(form.edad)
-  if (!Number.isInteger(edad) || edad < 16 || edad > 99) return 'La edad debe estar entre 16 y 99 años.'
+  if (!Number.isInteger(edad) || edad < EDAD_MINIMA || edad > EDAD_MAXIMA) return `La edad debe estar entre ${EDAD_MINIMA} y ${EDAD_MAXIMA} años.`
+  // Las fechas AAAA-MM-DD se comparan bien como texto
+  if (form.fecha_ingreso > fechaIngresoMaxima()) return 'La fecha de ingreso no puede ser posterior a un año desde hoy.'
   if (!/^\d{2,4}$/.test(form.telefono_area.trim())) return 'El código de área debe tener entre 2 y 4 dígitos, sin el 0.'
   if (!/^\d{6,8}$/.test(form.telefono_numero.trim())) return 'El número de teléfono debe tener entre 6 y 8 dígitos, sin el 15.'
   return null
@@ -176,7 +190,7 @@ export default function ResidentesPage() {
     setFiltroEstado('todos')
   }
 
-  function campoInput({ id, label, type, placeholder, maxLength, inputMode }: CampoTexto) {
+  function campoInput({ id, label, type, placeholder, maxLength, inputMode, min, max }: CampoTexto) {
     return (
       <div key={id} className="space-y-1">
         <Label htmlFor={id}>{label}</Label>
@@ -186,6 +200,9 @@ export default function ResidentesPage() {
           placeholder={placeholder}
           maxLength={maxLength}
           inputMode={inputMode}
+          min={min}
+          // El tope de la fecha de ingreso depende del día de hoy: se calcula al dibujar el formulario
+          max={id === 'fecha_ingreso' ? fechaIngresoMaxima() : max}
           value={form[id]}
           onChange={e => setForm(f => ({ ...f, [id]: e.target.value }))}
           required
