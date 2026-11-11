@@ -277,6 +277,19 @@ describe("POST /residencias/:residencia_id/residentes", () => {
     expect(conDni.status).toBe(200);
   });
 
+  it.each(["1234567", "123456789", "12A45678"])("retorna 400 si el DNI no tiene 8 dígitos (%s)", async (dni) => {
+    const admin = await crearAdmin();
+    const token = await login(admin.email);
+    const residencia = await crearResidencia();
+
+    const res = await supertest(app.server)
+      .post(`/residencias/${residencia.id}/residentes`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...residenteBase, dni });
+
+    expect(res.status).toBe(400);
+  });
+
   it("retorna 409 si el DNI ya existe", async () => {
     const admin = await crearAdmin();
     const token = await login(admin.email);
