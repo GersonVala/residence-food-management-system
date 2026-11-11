@@ -13,6 +13,7 @@ interface Stats {
   total_cocciones: number
   total_personas_alimentadas: number
   total_residencias: number
+  total_residencias_registradas: number
   total_residentes: number
 }
 
@@ -102,6 +103,41 @@ function KpiCard({ title, value, sub, icon: Icon, color }: {
   )
 }
 
+/** Dona mínima en SVG: la parte coloreada es la proporción de residencias activas sobre las registradas. */
+function MiniDona({ valor, total }: { valor: number; total: number }) {
+  const pct = total > 0 ? Math.min((valor / total) * 100, 100) : 0
+  // Con r = 15.9155 la circunferencia mide 100, así el dasharray se expresa directo en porcentaje
+  const r = 15.9155
+  return (
+    <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90 shrink-0" role="img" aria-label={`${valor} de ${total} residencias activas`}>
+      <circle cx="18" cy="18" r={r} fill="none" stroke="#E5E7EB" strokeWidth="4" />
+      <circle cx="18" cy="18" r={r} fill="none" stroke="#059669" strokeWidth="4" strokeDasharray={`${pct} ${100 - pct}`} />
+    </svg>
+  )
+}
+
+function ResidenciasActivasCard({ activas, registradas }: { activas: number; registradas: number }) {
+  const deBaja = registradas - activas
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-gray-600">Residencias activas</CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center gap-3">
+        <MiniDona valor={activas} total={registradas} />
+        <div>
+          <div className="text-2xl font-bold text-gray-900">
+            {activas}<span className="text-sm font-normal text-gray-400"> / {registradas}</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {deBaja === 0 ? 'todas activas' : deBaja === 1 ? '1 dada de baja' : `${deBaja} dadas de baja`}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 interface CustomTooltipProps {
   active?: boolean
   payload?: { name: string; value: number; color: string }[]
@@ -147,7 +183,7 @@ export default function AnalyticsPage() {
       ])
       setData(analytics)
     } catch {
-      setError('No se pudieron cargar los datos de analytics.')
+      setError('No se pudieron cargar las estadísticas.')
     } finally {
       setLoading(false)
     }
@@ -187,7 +223,7 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Analytics de cocina</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Estadísticas de cocina</h1>
         <p className="text-gray-500 mt-1 text-sm">Visualización de datos de consumo, platos y actividad entre residencias</p>
       </div>
 
@@ -274,12 +310,9 @@ export default function AnalyticsPage() {
               icon={Users}
               color="bg-amber-500"
             />
-            <KpiCard
-              title="Residencias activas"
-              value={data.stats.total_residencias}
-              sub="con al menos 1 residente"
-              icon={Building2}
-              color="bg-emerald-600"
+            <ResidenciasActivasCard
+              activas={data.stats.total_residencias}
+              registradas={data.stats.total_residencias_registradas}
             />
             <KpiCard
               title="Residentes activos"
