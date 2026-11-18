@@ -61,3 +61,7 @@ backend/.env.test
 
 # Credenciales locales
 claves.txt
+
+# Documentos del informe (se entregan aparte, no van al repositorio)
+/*.pdf
+/*.docx
